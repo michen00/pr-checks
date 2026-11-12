@@ -34,4 +34,4 @@ A change to a workflow has to keep the properties `tests/test_workflows.py` and 
 - Merges are squash-only, and the PR title becomes the squash commit, so it must be a valid Conventional Commit. A single-commit PR squashes to that commit's subject instead, so keep the two identical.
 - Fill in the [PR template](.github/pull_request_template.md). Summary and Testing always apply.
 - Open as a draft while the change is still moving.
-- Read what a merge into `main` needs with `gh api repos/michen00/pr-checks/rules/branches/main`. Dependabot's updates merge without a person once CI passes; label one `do not auto-merge` to keep it for a person to merge.
+- Read what a merge into `main` needs with `gh api repos/michen00/pr-checks/rules/branches/main`. Dependabot's updates merge without a person once CI passes; label one `do not auto-merge` to keep it for a person to merge. Removing the label does not re-arm it; comment `@dependabot rebase` to have it checked and armed again.

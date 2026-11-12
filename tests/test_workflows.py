@@ -634,6 +634,18 @@ def test_a_rewrite_pushed_by_dependabot_or_an_admin_keeps_it_trusted(
     assert outputs['trusted'] == 'true', result.stdout
 
 
+def test_auto_merge_runs_only_on_events_that_bring_commits() -> None:
+    """Arming runs on `opened` and `synchronize`, never on a label change or a reopen.
+
+    Those events carry no pusher, so the pusher rule cannot run on them: a run on a
+    label added after a held push would trust the head that push left.
+    """
+    automerge = _workflow('bot-automerge.yml')
+    assert _triggers(automerge) == {
+        'pull_request': {'types': ['opened', 'synchronize']}
+    }
+
+
 def test_the_kill_switch_reaches_every_pull_request() -> None:
     """The disarm workflow runs on every `do not auto-merge` label, with no other test.
 

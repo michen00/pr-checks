@@ -5,10 +5,15 @@ name: Bot auto-merge
 #
 # No check polling: `gh pr checks --required --watch` fails when it runs before CI has
 # registered its checks, and auto-merge waits for required checks anyway.
+#
+# Runs only on the events that bring commits. A label change or a reopen carries no
+# pusher, so a run on one could not apply the pusher rule, and would vouch for a head
+# that the rule held on its push. To re-arm after removing `do not auto-merge` or
+# reopening, comment `@dependabot rebase`: Dependabot pushes, and that push is checked.
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    types: [opened, synchronize]
 
 permissions:
   contents: write
@@ -216,7 +221,8 @@ jobs:
               rejected=$((rejected + 1))
             fi
           done <<< "$rows"
-          # Only a push carries a pusher; labels and reopening add no commits.
+          # Only a push carries a pusher. An `opened` run has no earlier head: its
+          # commits are the ones Dependabot opened the pull request with.
           if [ "$EVENT_ACTION" = synchronize ] && [ "$SENDER" != "$AUTHOR" ] &&
              ! admin "$SENDER"; then
             if ! [[ "$BEFORE" =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]] ||
