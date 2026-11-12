@@ -24,13 +24,11 @@ env:
   # context cannot be built from an expression.
   PYTHON_VERSION: '3.13'
 
-# A note on `astral-sh/setup-uv` below, which is pinned to an exact release where
-# most actions here float on their major: upstream stopped publishing
-# rolling major tags after v7. No later major has a rolling ref, so a `@v10` pin
-# does not resolve and a `@v7` pin is frozen for good -- Dependabot cannot
-# advance it, because the tag it would advance to does not exist. Pinning the
-# exact release is the only way to stay current; the cost is that each setup-uv
-# release raises its own Dependabot pull request, grouped with the other actions.
+# Every action is pinned to a full commit SHA, with the release it names in a trailing
+# comment; Dependabot moves the two together. A tag can be moved to other code after it
+# was reviewed, and a commit cannot. Every checkout also sets `persist-credentials:
+# false`, so no later step finds the job's token in .git/config; no step here pushes or
+# fetches. tests/test_workflow_pins.py enforces both.
 #
 # Each job's uv cache entry carries its job id (`cache-suffix`). The jobs install
 # different dependency groups, and an entry under a key that already exists is never
@@ -49,15 +47,16 @@ jobs:
     timeout-minutes: 30
     steps:
       # Both scans read history: trufflehog the commits, the staging the base.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Secret scanning
-        uses: trufflesecurity/trufflehog@v3.99.2
+        uses: trufflesecurity/trufflehog@e76dff8a7e57d6df0c60ad8cbf5d5cba505a8fc9 # v3.99.2
         with:
           extra_args: --results=verified,unknown
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
           cache-dependency-glob: |
@@ -71,7 +70,7 @@ jobs:
       # Its own key, for the same reason as the analysis job's, and restored and
       # pruned as the precommit job's is.
       - name: Cache pre-commit hooks
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/pre-commit
           key: >-
@@ -101,11 +100,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
           cache-dependency-glob: |
@@ -117,7 +117,7 @@ jobs:
           cache-suffix: ${{ github.job }}
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Cache pre-commit hooks
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/pre-commit
           # The buster leads the key, then the hook config. A changed config restores
@@ -148,9 +148,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
           cache-dependency-glob: |
@@ -165,7 +167,7 @@ jobs:
       # the precommit job every other one: sharing an entry would leave one of them
       # without its environments. Restored and pruned as the precommit job's is.
       - name: Cache pre-commit hooks
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/pre-commit
           key: >-
@@ -185,11 +187,12 @@ jobs:
     steps:
       # The coverage-diff step below needs the comparison base reachable locally to
       # compute `git diff`; a shallow checkout would not have it.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
           cache-dependency-glob: |
@@ -237,7 +240,7 @@ jobs:
       # No workflow posts it yet; the artifact is in the run's summary.
       - name: Upload the coverage report
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-report
           path: coverage

@@ -143,4 +143,4 @@ title as its subject, so a trailing period ends up on main.
 ### Modifying CI
 
 - Edit the workflow under `.github/workflows/`, and update `.github/instructions/CI.instructions.md` in the same commit.
-- `tests/test_ci_jobs.py`, `tests/test_workflow_caches.py`, `tests/test_workflow_injection.py` and `tests/test_workflows.py` pin the workflows' properties. Change a workflow so they still pass; do not change them to fit the workflow.
+- `tests/test_ci_jobs.py`, `tests/test_workflow_caches.py`, `tests/test_workflow_injection.py`, `tests/test_workflow_pins.py` and `tests/test_workflows.py` pin the workflows' properties. Change a workflow so they still pass; do not change them to fit the workflow.
