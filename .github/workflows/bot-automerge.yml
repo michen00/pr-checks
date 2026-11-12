@@ -99,6 +99,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           AUTHOR: ${{ github.event.pull_request.user.login }}
+          EVENT_ACTION: ${{ github.event.action }}
+          SENDER: ${{ github.event.sender.login }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
         run: |
           # The author login alone proves nothing: it is resolved from the author email,
           # which any pusher can set. So every commit must also be created by GitHub, and
@@ -109,12 +113,22 @@ jobs:
           # as Update branch and catch-up merges are, or be authored by a repository admin.
           #
           # GitHub also signs commits that an App or `GITHUB_TOKEN` creates through its API,
-          # with any author, tree and parents, so this trusts any holder of a write token.
-          # Where the base branch requires approval of the most recent push, the approval
-          # below does not count on a commit github-actions pushed.
+          # with any author, tree and parents, so the rules above alone trust any holder of
+          # a write token. The pusher is what GitHub records itself: on a push by anyone
+          # but the pull request's author or an admin, every commit that push added must be
+          # a clean merge of two parents, which is all a catch-up push contains.
+          #
+          # Everything here is checked against the one head commit read first, and a
+          # trusted verdict names it in `head`, so the approval and the arming below act on
+          # that commit and no later push.
           #
           # Fails closed: a failed query or fetch leaves `trusted` unset; later steps skip.
           set -euo pipefail
+          head=$(gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}" --jq '.head.sha')
+          if ! [[ "$head" =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]]; then
+            echo "::error::could not read the PR's head commit; holding."
+            exit 1
+          fi
           jq_rows='.[] | [
             (if (.commit.verification.verified == true)
                 and (.commit.verification.reason == "valid")
@@ -148,6 +162,15 @@ jobs:
             exit 0
           fi
           git fetch --no-tags origin "+refs/pull/${PR_NUMBER}/head:refs/remotes/pr/head"
+          # A push between the reads above changes one of these, and what was inspected is
+          # then not the head that would be approved.
+          fetched=$(git rev-parse --verify 'refs/remotes/pr/head^{commit}')
+          listed=$(printf '%s\n' "$rows" | awk -F'|' 'NF { sha = $4 } END { print sha }')
+          if [ "$fetched" != "$head" ] || [ "$listed" != "$head" ]; then
+            echo "::warning::the head moved while it was being inspected; holding."
+            echo "trusted=false" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
           # Succeeds for a commit with exactly two parents whose tree is their clean merge.
           mechanical() {
             local sha=$1 first second extra clean
@@ -193,10 +216,38 @@ jobs:
               rejected=$((rejected + 1))
             fi
           done <<< "$rows"
+          # Only a push carries a pusher; labels and reopening add no commits.
+          if [ "$EVENT_ACTION" = synchronize ] && [ "$SENDER" != "$AUTHOR" ] &&
+             ! admin "$SENDER"; then
+            if ! [[ "$BEFORE" =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]] ||
+               ! [[ "$AFTER" =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]] ||
+               ! git merge-base --is-ancestor "$BEFORE" "$AFTER" 2>/dev/null; then
+              # A rewrite by a pusher who may not add plain commits cannot be checked
+              # commit by commit against what it replaced.
+              echo "::warning::${SENDER} rewrote the branch; holding."
+              rejected=$((rejected + 1))
+            else
+              # The commits this push added that the default branch, checked out here, does
+              # not already have: a catch-up brings main's own commits in, and those are
+              # not the pusher's. Every other commit, on any parent's side, is checked.
+              # An assignment, so a failed listing fails the step instead of reading as
+              # no commits.
+              pushed=$(git rev-list --parents "$AFTER" "^${BEFORE}" '^HEAD')
+              while read -r sha parents; do
+                [ -z "$sha" ] && continue
+                if ! mechanical "$sha" "$parents"; then
+                  echo "::warning::${SENDER} pushed ${sha}, which is not a clean merge of" \
+                       "two parents; holding."
+                  rejected=$((rejected + 1))
+                fi
+              done <<< "$pushed"
+            fi
+          fi
           if [ "$rejected" -ne 0 ]; then
             echo "trusted=false" >>"$GITHUB_OUTPUT"
           else
             echo "trusted=true" >>"$GITHUB_OUTPUT"
+            echo "head=${head}" >>"$GITHUB_OUTPUT"
           fi
 
       - name: Decide eligibility
@@ -255,9 +306,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ARM_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+          VERIFIED_HEAD: ${{ steps.provenance.outputs.head }}
         run: |
           # Read into a variable under `set -e`, so a failed query is not read as "no label".
           set -euo pipefail
+          if ! [[ "$VERIFIED_HEAD" =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]]; then
+            echo "::error::no verified head commit to approve; not arming."
+            exit 1
+          fi
           labels=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name')
           # Case-insensitive, as GitHub compares label names.
           if grep -qixF 'do not auto-merge' <<< "$labels"; then
@@ -270,11 +326,38 @@ jobs:
           # Approve as github-actions, never as the App: where the base branch requires
           # approval of the most recent push, the last pusher's approval does not count,
           # and a catch-up that merges main into the branch would push as the App.
+          #
+          # Both act on the commit the provenance step inspected: the approval names it,
+          # so an approval of a commit pushed since is stale, and arming refuses a head
+          # that has moved on from it.
           decision=$(gh pr view "$PR_NUMBER" --json reviewDecision --jq .reviewDecision)
           if [ "$decision" = "APPROVED" ]; then
             echo "::notice::Already approved."
           else
-            gh pr review --approve "$PR_NUMBER" ||
+            gh api -X POST "repos/${GH_REPO}/pulls/${PR_NUMBER}/reviews" \
+              -f event=APPROVE -f commit_id="$VERIFIED_HEAD" >/dev/null ||
               echo "::warning::approval refused; auto-merge will wait for a reviewer."
           fi
-          GH_TOKEN="$ARM_TOKEN" gh pr merge --auto --squash "$PR_NUMBER"
+          GH_TOKEN="$ARM_TOKEN" gh pr merge --auto --squash \
+            --match-head-commit "$VERIFIED_HEAD" "$PR_NUMBER"
+
+      # Fails closed. A run that did not trust the head, including one that errored before
+      # reaching a verdict, or one that found CI no longer required, turns off any
+      # auto-merge an earlier run armed, so an approval given later cannot merge commits
+      # no run vouched for. A hold for eligibility alone leaves it: a person may have armed
+      # a held update on purpose.
+      - name: Disarm auto-merge unless this run vouched for the head
+        if: >-
+          always() &&
+          (steps.provenance.outputs.trusted != 'true' ||
+           steps.gate.outputs.required == 'false')
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+        run: |
+          set -euo pipefail
+          armed=$(gh pr view "$PR_NUMBER" --json autoMergeRequest \
+            --jq '.autoMergeRequest != null')
+          if [ "$armed" = true ]; then
+            gh pr merge --disable-auto "$PR_NUMBER"
+            echo "::warning::auto-merge disarmed: this run did not vouch for the head."
+          fi
