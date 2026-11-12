@@ -1,0 +1,183 @@
+---
+default_language_version:
+  python: python3
+
+default_install_hook_types:
+  - commit-msg
+  - pre-commit
+  - prepare-commit-msg
+
+default_stages: [pre-commit]
+
+repos:
+  # maintenance
+  - repo: https://github.com/pre-commit/sync-pre-commit-deps
+    rev: v0.0.5
+    hooks:
+      - id: sync-pre-commit-deps
+
+  # security (fail fast)
+  # gitleaks scans only staged changes; CI's Secret scanning job stages the change first.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+        fail_fast: true
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: detect-private-key
+        fail_fast: true
+
+  # git commit policy
+  - repo: https://github.com/michen00/custom-commit-hooks
+    rev: v0.1.3
+    hooks:
+      - id: enhance-scope
+        stages: [commit-msg]
+      - id: conventional-merge-commit
+        stages: [prepare-commit-msg]
+  - repo: https://github.com/jorisroovers/gitlint
+    rev: v0.19.1
+    hooks:
+      - id: gitlint
+        stages: [commit-msg]
+
+  # hygiene (cheap, non-formatting)
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-merge-conflict
+      - id: check-shebang-scripts-are-executable
+      - id: check-symlinks
+      - id: destroyed-symlinks
+      - id: mixed-line-ending
+
+  # formatting before linting
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: requirements-txt-fixer
+      - id: trailing-whitespace
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.9.10
+    hooks:
+      - id: prettier
+        types_or: [css, html, javascript, json, markdown, scss, ts, yaml]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.3
+    hooks:
+      - id: ruff-check
+        types_or: [pyi, python, toml]
+        args: [--fix, --show-fixes]
+      - id: ruff-format
+        types_or: [pyi, python, toml]
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.14.1-1
+    hooks:
+      - id: shfmt
+  # pyproject-fmt owns pyproject.toml; tombi.toml keeps tombi's formatter off it.
+  - repo: https://github.com/tox-dev/pyproject-fmt
+    rev: v2.30.3
+    hooks:
+      - id: pyproject-fmt
+  - repo: https://github.com/tombi-toml/tombi-pre-commit
+    rev: v1.9.8
+    hooks:
+      - id: tombi-format
+  # Before markdownlint, so its --fix sees the final text; nothing here rewraps prose.
+  - repo: https://github.com/michen00/markdown-prose-hooks-py
+    rev: v0.5.2
+    hooks:
+      - id: unwrap-markdown-prose-py
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.50.0
+    hooks:
+      - id: markdownlint
+        args: [--fix]
+
+  # linting
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.10.0
+    hooks:
+      - id: python-check-blanket-noqa
+      - id: python-check-blanket-type-ignore
+      - id: python-no-log-warn
+      - id: python-use-type-annotations
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-json
+      - id: check-toml
+      - id: check-yaml
+      - id: check-ast
+      - id: debug-statements
+      - id: name-tests-test
+        args: [--pytest-test-first]
+  - repo: https://github.com/tombi-toml/tombi-pre-commit
+    rev: v1.9.8
+    hooks:
+      - id: tombi-lint
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+        args: [--strict]
+  - repo: https://github.com/adhtruong/mirrors-typos
+    rev: v1.51.1
+    hooks:
+      - id: typos
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.3
+    hooks:
+      - id: codespell
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint
+
+  # static type analysis
+  - repo: https://github.com/astral-sh/ty-pre-commit
+    rev: v0.0.95
+    hooks:
+      - id: ty
+        # --all-groups because default-groups is empty and the tests need their imports;
+        # --locked keeps the hook's own uv from rewriting a stale uv.lock.
+        args: ['--all-groups', '--locked']
+  - repo: local
+    hooks:
+      # Both run in the uv.lock environment, so imports resolve at the locked versions.
+      - id: basedpyright
+        name: basedpyright
+        entry: uv run --locked --all-groups basedpyright
+        language: system
+        types_or: [python, pyi]
+        pass_filenames: false
+        require_serial: true
+      - id: pylint
+        name: pylint
+        entry: uv run --locked --all-groups pylint noxfile.py scripts src tests
+        language: system
+        types: [python]
+        pass_filenames: false
+        require_serial: true
+
+  # configuration validation
+  - repo: https://github.com/abravalheri/validate-pyproject
+    rev: '0.26'
+    hooks:
+      - id: validate-pyproject
+        additional_dependencies: ['validate-pyproject-schema-store[all]']
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.39.0
+    hooks:
+      - id: check-dependabot
+      - id: check-github-workflows

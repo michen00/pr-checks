@@ -1,0 +1,42 @@
+[run]
+branch = True
+source_pkgs = pr_checks, scripts
+
+; The test session installs the package into its own environment, so the data
+; names files under .nox/<session>/lib/python*/site-packages/. Combining the
+; workers' data maps them back to src/, so the report and the coverage comment
+; name the files a diff touches and link files that exist.
+[paths]
+source =
+    src/
+    */site-packages/
+
+[report]
+; Regexes for lines to exclude from consideration
+exclude_also =
+    no cov
+
+    ; Don't complain about missing debug-only code:
+    def __repr__
+    if self\.debug
+
+    ; Don't complain if tests don't hit defensive assertion code:
+    raise AssertionError
+    raise NotImplementedError
+
+    ; Don't complain if non-runnable code isn't run:
+    if 0:
+    if False:
+    if None:
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+
+    ; Don't complain about abstract methods, they aren't run:
+    @(abc\.)?abstractmethod
+precision = 1
+skip_empty = True
+show_missing = True
+skip_covered = True
+
+[html]
+show_contexts = True

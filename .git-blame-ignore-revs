@@ -1,0 +1,2 @@
+# Revisions that `git blame` skips: style-only or other bulk changes, one full commit
+# SHA per line with its subject as a comment. `make develop` points git at this file.
