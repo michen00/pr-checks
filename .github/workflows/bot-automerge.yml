@@ -1,0 +1,280 @@
+---
+name: Bot auto-merge
+
+# Approves eligible Dependabot pull requests and arms native auto-merge (squash) on them.
+#
+# No check polling: `gh pr checks --required --watch` fails when it runs before CI has
+# registered its checks, and auto-merge waits for required checks anyway.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: bot-automerge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  bot-automerge:
+    # The guard reads `pull_request.user.login`, not `github.actor`: the actor is whoever
+    # caused this event, so a later push by anyone else would skip the job.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      !contains(github.event.pull_request.labels.*.name, 'do not auto-merge')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_REPO: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+    # Pinned to commits, which Dependabot moves: these steps receive the App's key and
+    # write tokens.
+    steps:
+      # Optional App identity for arming: auto-merge completes as whoever armed it, and a
+      # merge under `GITHUB_TOKEN` starts no workflows, so nothing the push to main
+      # triggers would run.
+      # Dependabot-triggered runs read only the Dependabot secret store, so the key must be
+      # in both stores.
+      - name: Detect App credentials
+        id: creds
+        env:
+          APP_CLIENT_ID_VALUE: ${{ vars.APP_CLIENT_ID }}
+          APP_KEY_VALUE: ${{ secrets.APP_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -n "$APP_CLIENT_ID_VALUE" ] && [ -n "$APP_KEY_VALUE" ]; then
+            echo "available=true" >>"$GITHUB_OUTPUT"
+          else
+            echo "available=false" >>"$GITHUB_OUTPUT"
+            echo "::notice::No App credential on this run; arming under the default" \
+                 "token. The merge will fire no downstream push or closed event."
+          fi
+
+      - name: Mint an App token, if one is configured
+        id: app-token
+        if: steps.creds.outputs.available == 'true'
+        continue-on-error: true
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      # `continue-on-error` records a failed mint as a success, so report it here.
+      - name: Report a mint that failed
+        if: >-
+          steps.creds.outputs.available == 'true' &&
+          (steps.app-token.outcome != 'success' || steps.app-token.outputs.token == '')
+        run: |
+          echo "::warning::App credentials are set but minting failed; falling back to" \
+               "the default token. Auto-merge still works; downstream triggers will not."
+
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+      - name: Report metadata that cannot be gated on
+        if: ${{ !steps.meta.outputs.update-type }}
+        env:
+          ECOSYSTEM: ${{ steps.meta.outputs.package-ecosystem }}
+        run: |
+          echo "::notice::No update-type for ${ECOSYSTEM:-unknown}; leaving this for a human."
+
+      # The default branch, never the pull request's head, so nothing from the pull
+      # request runs. The next step fetches its commits as objects for `git merge-tree`.
+      - name: Check out the default branch's history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify every commit was created by GitHub
+        id: provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          # The author login alone proves nothing: it is resolved from the author email,
+          # which any pusher can set. So every commit must also be created by GitHub, and
+          # every commit that is not a merge must be authored by the pull request's author.
+          #
+          # A merge GitHub signs can still carry anything if someone resolved it by hand
+          # in the conflict editor. So a merge must also be a clean merge of two parents,
+          # as Update branch and catch-up merges are, or be authored by a repository admin.
+          #
+          # GitHub also signs commits that an App or `GITHUB_TOKEN` creates through its API,
+          # with any author, tree and parents, so this trusts any holder of a write token.
+          # Where the base branch requires approval of the most recent push, the approval
+          # below does not count on a commit github-actions pushed.
+          #
+          # Fails closed: a failed query or fetch leaves `trusted` unset; later steps skip.
+          set -euo pipefail
+          jq_rows='.[] | [
+            (if (.commit.verification.verified == true)
+                and (.commit.verification.reason == "valid")
+                and ((.committer.login // "") == "web-flow")
+                and ((.commit.verification.payload // "") | split("\n")
+                     | any(startswith("committer GitHub <noreply@github.com>")))
+             then "github" else "elsewhere" end),
+            (if (.parents | length) >= 2 then "merge" else "plain" end),
+            (.author.login // "<none>"),
+            .sha,
+            ([.parents[].sha] | join(" "))
+          ] | join("|")'
+          # The endpoint returns at most 250 commits and still exits 0, so refuse rather
+          # than inspect part of the pull request.
+          total=$(gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}" --jq '.commits')
+          # A non-integer count makes the tests below error, which `if` reads as false.
+          if ! [[ "$total" =~ ^[0-9]+$ ]]; then
+            echo "::error::could not read the PR's commit count; holding."
+            exit 1
+          fi
+          if [ "$total" -gt 250 ]; then
+            echo "::warning::${total} commits exceeds the 250 this API returns; holding."
+            echo "trusted=false" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          rows=$(gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}/commits" --paginate --jq "$jq_rows")
+          seen=$(printf '%s\n' "$rows" | grep -c . || true)
+          if [ "$seen" -ne "$total" ]; then
+            echo "::warning::inspected ${seen} of ${total} commits; holding."
+            echo "trusted=false" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch --no-tags origin "+refs/pull/${PR_NUMBER}/head:refs/remotes/pr/head"
+          # Succeeds for a commit with exactly two parents whose tree is their clean merge.
+          mechanical() {
+            local sha=$1 first second extra clean
+            read -r first second extra <<< "$2"
+            if [ -z "$second" ] || [ -n "$extra" ]; then
+              return 1
+            fi
+            clean=$(git merge-tree --write-tree --no-messages "$first" "$second") || return 1
+            [ "$clean" = "$(git rev-parse --verify "${sha}^{tree}")" ]
+          }
+          # Succeeds if the repository reports `admin` for the login, asked once per login.
+          admins=' '
+          others=' '
+          admin() {
+            local login=$1 permission
+            if [ -z "$login" ] || [ "$login" = "<none>" ]; then
+              return 1
+            fi
+            case $admins in *" $login "*) return 0 ;; esac
+            case $others in *" $login "*) return 1 ;; esac
+            permission=$(gh api "repos/${GH_REPO}/collaborators/${login}/permission" \
+              --jq .permission) || permission=unknown
+            if [ "$permission" = admin ]; then
+              admins="${admins}${login} "
+              return 0
+            fi
+            others="${others}${login} "
+            return 1
+          }
+          rejected=0
+          while IFS='|' read -r origin kind commit_author sha parents; do
+            [ -z "$origin" ] && continue
+            if [ "$origin" != "github" ]; then
+              echo "::warning::a commit was not created by GitHub; holding."
+              rejected=$((rejected + 1))
+            elif [ "$kind" != "merge" ] && [ "$commit_author" != "$AUTHOR" ]; then
+              echo "::warning::non-merge commit authored by ${commit_author}; holding."
+              rejected=$((rejected + 1))
+            elif [ "$kind" = "merge" ] && ! mechanical "$sha" "$parents" &&
+                 ! admin "$commit_author"; then
+              echo "::warning::merge ${sha} by ${commit_author} is neither a clean merge" \
+                   "of two parents nor an admin's; holding."
+              rejected=$((rejected + 1))
+            fi
+          done <<< "$rows"
+          if [ "$rejected" -ne 0 ]; then
+            echo "trusted=false" >>"$GITHUB_OUTPUT"
+          else
+            echo "trusted=true" >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Decide eligibility
+        id: eligible
+        if: steps.provenance.outputs.trusted == 'true'
+        env:
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
+          ECOSYSTEM: ${{ steps.meta.outputs.package-ecosystem }}
+        run: |
+          set -euo pipefail
+          case "$UPDATE_TYPE" in
+            version-update:semver-patch|version-update:semver-minor)
+              echo "::notice::Dependabot ${UPDATE_TYPE}; eligible."
+              echo "should_merge=true" >>"$GITHUB_OUTPUT"
+              ;;
+            version-update:semver-major)
+              # CI exercises only code a pull request runs, so a major used only by a
+              # workflow that no pull request starts merges untested.
+              echo "::notice::${ECOSYSTEM:-unknown} major; eligible on green CI."
+              echo "should_merge=true" >>"$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::warning::Holding ${UPDATE_TYPE:-unknown update type} for a human."
+              echo "should_merge=false" >>"$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      # Arm only while a ruleset requires the context CI's run-ci job reports, so a renamed
+      # job or a context dropped from the ruleset holds bot pull requests rather than
+      # letting them merge without CI. tests/test_workflows.py pins CONTEXT to CI.yml.
+      - name: Check that the base branch requires CI
+        id: gate
+        if: steps.eligible.outputs.should_merge == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          CONTEXT: Run CI (3.13)
+        run: |
+          set -euo pipefail
+          required="$(gh api "repos/${GH_REPO}/rules/branches/${BASE_REF}?per_page=100" \
+            --jq '[.[] | select(.type == "required_status_checks")
+              | .parameters.required_status_checks[].context]' \
+            | jq --arg c "$CONTEXT" 'index($c) != null')"
+          echo "required=${required}" >>"$GITHUB_OUTPUT"
+          if [ "$required" != true ]; then
+            echo "::notice::No ruleset on ${BASE_REF} requires '${CONTEXT}', so" \
+              "auto-merge would not wait for CI; leaving this PR for a human."
+          fi
+
+      # Re-read the label: one applied during this run is not in the event payload, and the
+      # disarm run may already have finished.
+      - name: Re-check the kill switch, then approve and arm
+        if: >-
+          steps.eligible.outputs.should_merge == 'true' &&
+          steps.gate.outputs.required == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARM_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+        run: |
+          # Read into a variable under `set -e`, so a failed query is not read as "no label".
+          set -euo pipefail
+          labels=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name')
+          # Case-insensitive, as GitHub compares label names.
+          if grep -qixF 'do not auto-merge' <<< "$labels"; then
+            echo "::warning::do not auto-merge applied since this run started; not arming."
+            exit 0
+          fi
+          # Approve and arm in one step: the disarm workflow does not dismiss reviews, so an
+          # approval on a pull request left unarmed would stand.
+          #
+          # Approve as github-actions, never as the App: where the base branch requires
+          # approval of the most recent push, the last pusher's approval does not count,
+          # and a catch-up that merges main into the branch would push as the App.
+          decision=$(gh pr view "$PR_NUMBER" --json reviewDecision --jq .reviewDecision)
+          if [ "$decision" = "APPROVED" ]; then
+            echo "::notice::Already approved."
+          else
+            gh pr review --approve "$PR_NUMBER" ||
+              echo "::warning::approval refused; auto-merge will wait for a reviewer."
+          fi
+          GH_TOKEN="$ARM_TOKEN" gh pr merge --auto --squash "$PR_NUMBER"
