@@ -7,6 +7,11 @@
 # The image is pinned to match .pre-commit-config.yaml's actionlint rev. Keep the
 # two in step -- a floating `:latest` here would run a different actionlint than
 # the gate, with this repository's token, and disagree with it silently.
+#
+# It is the one reference here not pinned to a commit: Dependabot's github-actions
+# parser skips `docker://` references, and its docker ecosystem reads Dockerfiles and
+# Kubernetes manifests, not workflows, so neither a tag nor a digest would be updated
+# automatically. Bump it by hand with the pre-commit hook's rev.
 name: lint GitHub Actions workflows
 on:
   workflow_dispatch:
@@ -18,7 +23,9 @@ jobs:
   actionlint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Check workflow files
         # Docker Hub tags drop the leading `v` that the pre-commit rev carries.
         uses: docker://rhysd/actionlint:1.7.12
