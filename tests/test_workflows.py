@@ -159,6 +159,61 @@ def test_auto_merge_guards_on_the_pull_request_author() -> None:
     assert 'github.actor' not in guard
 
 
+def test_the_key_never_runs_on_a_pull_request_that_bumps_its_actions() -> None:
+    """The job that holds the App's key skips Dependabot's GitHub Actions branches.
+
+    A `pull_request` run uses the pull request's copy of the workflow, so on such a
+    branch the bumped actions would run with the key before review. GitHub evaluates
+    the job's condition before any action runs.
+    """
+    jobs = _workflow('bot-automerge.yml')['jobs']
+    assert ' '.join(jobs['bot-automerge']['if'].split()) == (
+        'github.event.pull_request.head.repo.full_name == github.repository && '
+        "github.event.pull_request.user.login == 'dependabot[bot]' && "
+        "!startsWith(github.head_ref, 'dependabot/github_actions/') && "
+        "!contains(github.event.pull_request.labels.*.name, 'do not auto-merge')"
+    )
+    holders = {
+        name for name, job in jobs.items() if 'APP_PRIVATE_KEY' in yaml.safe_dump(job)
+    }
+    assert holders == {'bot-automerge'}
+
+
+def test_github_actions_updates_wait_for_a_person() -> None:
+    """Action bumps get a job with no scope, secret or action that only says why.
+
+    Approving or arming one, even under the default token, would merge an unreviewed
+    action that the next run from main executes with the key.
+    """
+    hold = _workflow('bot-automerge.yml')['jobs']['hold-action-bumps']
+    assert ' '.join(hold['if'].split()) == (
+        'github.event.pull_request.head.repo.full_name == github.repository && '
+        "github.event.pull_request.user.login == 'dependabot[bot]' && "
+        "startsWith(github.head_ref, 'dependabot/github_actions/')"
+    )
+    assert hold['permissions'] == {}
+    text = yaml.safe_dump(hold)
+    assert 'secrets.' not in text
+    assert all('uses' not in step for step in hold['steps'])
+    assert all('gh ' not in step.get('run', '') for step in hold['steps'])
+
+
+def test_dependabot_names_action_branches_as_the_guard_expects() -> None:
+    """Dependabot's config keeps the `dependabot/github_actions/` branch prefix.
+
+    A custom branch-name separator, or a multi-ecosystem group that takes in GitHub
+    Actions updates, would rename those branches, and the key job's guard would stop
+    matching them without failing anywhere else.
+    """
+    path = Path(__file__).resolve().parents[1] / '.github' / 'dependabot.yml'
+    config: dict[Any, Any] = yaml.safe_load(path.read_text(encoding='utf-8'))
+    updates = config['updates']
+    actions = [u for u in updates if u['package-ecosystem'] == 'github-actions']
+    assert len(actions) == 1
+    assert all('pull-request-branch-name' not in update for update in updates)
+    assert 'multi-ecosystem-group' not in actions[0]
+
+
 def test_auto_merge_approves_as_github_actions() -> None:
     """The approval is the default token's; only arming may use the App token.
 

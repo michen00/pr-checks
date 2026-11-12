@@ -27,9 +27,19 @@ jobs:
   bot-automerge:
     # The guard reads `pull_request.user.login`, not `github.actor`: the actor is whoever
     # caused this event, so a later push by anyone else would skip the job.
+    #
+    # This job holds the App's key, and a `pull_request` run uses the pull request's own
+    # copy of this file, so on a pull request that bumps one of the actions below, the
+    # bumped version would run with the key before anyone reviewed it. The job therefore
+    # never runs on Dependabot's GitHub Actions branches. GitHub evaluates this condition
+    # before any action runs, and Dependabot changes only version strings, never the
+    # condition. Those pull requests go to `hold-action-bumps` and wait for a person,
+    # because a bump merged unreviewed would run with the key on the next run from main.
+    # tests/test_workflows.py pins the branch naming this relies on in dependabot.yml.
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.user.login == 'dependabot[bot]' &&
+      !startsWith(github.head_ref, 'dependabot/github_actions/') &&
       !contains(github.event.pull_request.labels.*.name, 'do not auto-merge')
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -367,3 +377,22 @@ jobs:
             gh pr merge --disable-auto "$PR_NUMBER"
             echo "::warning::auto-merge disarmed: this run did not vouch for the head."
           fi
+
+  # Dependabot's GitHub Actions updates change the actions `bot-automerge` runs with the
+  # App's key, so they get neither an approval nor auto-merge: a person reviews and merges
+  # each one. This job holds no token scope and no secret, and runs no action; it only
+  # says why the pull request is waiting.
+  hold-action-bumps:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      startsWith(github.head_ref, 'dependabot/github_actions/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Leave GitHub Actions updates for a person
+        run: |
+          echo "::notice::Dependabot updates GitHub Actions here. bot-automerge runs" \
+               "those actions with the App's key, so this pull request waits for a" \
+               "person to review and merge it."
