@@ -1,0 +1,26 @@
+---
+# Workflow YAML lint is enforced on every push and pull request by the pinned
+# actionlint pre-commit hook, which CI runs via `nox -s precommit`. This job is
+# the optional manual re-run: it duplicates that coverage rather than adding to
+# it, so it is dispatch-only and does not spend a runner on ordinary traffic.
+#
+# The image is pinned to match .pre-commit-config.yaml's actionlint rev. Keep the
+# two in step -- a floating `:latest` here would run a different actionlint than
+# the gate, with this repository's token, and disagree with it silently.
+name: lint GitHub Actions workflows
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check workflow files
+        # Docker Hub tags drop the leading `v` that the pre-commit rev carries.
+        uses: docker://rhysd/actionlint:1.7.12
+        with:
+          args: -color
