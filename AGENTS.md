@@ -54,7 +54,7 @@ The `Makefile` is the primary entry point for development tasks.
 - `src/pr_checks/`: The package the actions are to run. It holds only its docstring so far.
 - `scripts/`: Standalone scripts, not a package: `coverage_diff_report.py` (the coverage report CI renders) and `concat-gitignores.sh` (generates `.gitignore`).
 - `tests/`: Test suite.
-- `.github/`: GitHub Actions workflows. [`.github/instructions/CI.instructions.md`](.github/instructions/CI.instructions.md) lists the rules a workflow change must keep.
+- `.github/`: GitHub Actions workflows. [`.github/instructions/CI.instructions.md`](.github/instructions/CI.instructions.md) says which tests enforce the workflows' rules and which rules to keep by hand.
 - `.specify/memory/constitution.md`: Project constitution (authoritative reference for design principles, quality gates, and coding standards).
 - `pyproject.toml`: Project configuration (build, deps, tools).
 - `uv.lock`: Locked dependencies.

@@ -237,7 +237,6 @@ jobs:
           uv run --locked --only-group ci python -m scripts.coverage_diff_report "${args[@]}"
       # Uploaded for a later workflow_run to post as a pull request comment, so the
       # write scope a comment needs never sits in a job that runs pull request code.
-      # No workflow posts it yet; the artifact is in the run's summary.
       - name: Upload the coverage report
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
