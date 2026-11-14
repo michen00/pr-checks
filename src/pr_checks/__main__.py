@@ -19,7 +19,7 @@ Usage:
 
 from __future__ import annotations
 
-__all__ = ('FINDINGS_FORMAT', 'main')
+__all__ = 'FINDINGS_FORMAT', 'main'
 
 import argparse
 import os

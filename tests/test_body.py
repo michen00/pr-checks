@@ -12,7 +12,7 @@ from pr_checks.findings import Findings
 
 __all__ = ()
 
-_SECTIONS = ('Summary', 'Testing')
+_SECTIONS = 'Summary', 'Testing'
 
 _GOOD_BODY = """## Summary
 
@@ -267,7 +267,7 @@ def test_every_finding_says_what_to_do_about_it() -> None:
         '## Testing\n\n```\nnot tagged\n```\n'
     )
     found = check_body(body, _SECTIONS)
-    findings = (*found.errors, *found.warnings)
+    findings = *found.errors, *found.warnings
 
     assert len(findings) == 4
     for finding in findings:
