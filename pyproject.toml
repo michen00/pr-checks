@@ -37,5 +37,7 @@ default-groups = []
 package = true
 
 [tool.pyproject-fmt]
+# Dependabot writes X.Y.0; trimming it fails the Pre-commit job on its pull request.
+keep_full_version = true
 # The newest Python CI tests.
 max_supported_python = "3.14"
