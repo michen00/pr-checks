@@ -2,7 +2,7 @@
 
 ## 1. Repository Identity & Purpose
 
-- This repository is to publish GitHub Actions that check a pull request's title and description before it merges. As of 2026-11-13 it holds the checks as a Python package, and no action exists yet.
+- This repository is to publish GitHub Actions that check a pull request's title and description before it merges. It holds the checks as a Python package, and no action exists yet.
 - **The actions will read text a pull request's author controls.** Such text must reach a shell through `env:` or a file, never through a `${{ }}` expression in a `run:` block; `tests/test_workflow_injection.py` fails on any such expression in a workflow or composite action here.
 - **Write in defined terms.** Name the check, the input and the result. Avoid idiom and metaphor.
 - **Use the present indicative only for what is true now.** Write a rule, a plan or a future state with a modal verb (_must_, _should_, _may_, _will_ with its date or trigger), so no reader takes it for a description.
