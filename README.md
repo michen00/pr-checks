@@ -7,7 +7,7 @@ GitHub Actions that check a pull request's title and description before it merge
 
 ## Status
 
-Pre-release. As of 2026-11-14 the check action is here but no version is tagged, and the action that posts the findings as a comment is to follow.
+Pre-release. As of 2026-11-14 both actions are here, but no version is tagged.
 
 ## What it checks
 
@@ -50,6 +50,35 @@ The action checks out nothing. It sets up uv with `astral-sh/setup-uv`, which pu
 | `upload-findings` | `true` | Whether to upload the findings as an artifact, for the comment action |
 | `artifact-name` | `pr-check-findings` | The artifact's name |
 | `title`, `body`, `author` | the pull request's | What to check, for a workflow on another event |
+
+## Posting the findings as a comment
+
+The comment action posts the findings on the pull request as one comment: the errors, then the warnings. It edits the comment as the findings change and deletes it once there are none.
+
+```yaml
+name: PR checks comment
+on:
+  workflow_run:
+    workflows: [PR checks]
+    types: [completed]
+permissions:
+  actions: read
+  pull-requests: write
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: michen00/pr-checks/comment@<commit SHA> # once v1 is released
+```
+
+It runs in a workflow of its own because `workflow_run` takes the definition from the default branch, so the token that writes the comment never runs the pull request's code. Pin it by commit SHA, since it writes.
+
+| Input | Default | Meaning |
+| --- | --- | --- |
+| `github-token` | the job's token | Needs `actions: read` and `pull-requests: write` |
+| `artifact-name` | `pr-check-findings` | The check action's artifact |
+| `marker` | `<!-- pr-checks:findings -->` | Hidden text that marks the action's own comment |
+| `handoff` | `true` | Whether to end the comment with a prompt to hand to a coding agent |
 
 ## Development
 
