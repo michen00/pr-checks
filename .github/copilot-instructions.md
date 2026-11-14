@@ -2,7 +2,7 @@
 
 ## Project
 
-- This repository is to publish GitHub Actions that check a pull request's title and description before it merges. As of 2026-11-12 it holds only its tooling: linting, type checking, tests and CI. No action exists yet.
+- This repository is to publish GitHub Actions that check a pull request's title and description before it merges. It holds the checks as a Python package and no action exists yet.
 - No pull request text may reach a shell through a `${{ }}` expression in a `run:` block. Read [SECURITY.md](../SECURITY.md) before changing a workflow.
 
 ## 1) High‑Level Details
@@ -21,7 +21,7 @@
 
 ## 3) Project Layout and Architecture
 
-- `src/pr_checks/`: The package the actions are to run. It holds only its docstring so far.
+- `src/pr_checks/`: The checks the actions are to run: `title` and `body`, each a module with a command line, on `subject` (the subject rules) and `findings` (how results print and are recorded).
 - `scripts/`: Standalone scripts, not a package: the coverage report CI renders and `concat-gitignores.sh` (generates `.gitignore`).
 - `tests/`: Test suite.
 - `.specify/memory/constitution.md`: Project constitution (design principles, quality gates, coding standards).
