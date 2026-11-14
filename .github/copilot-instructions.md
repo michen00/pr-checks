@@ -2,7 +2,7 @@
 
 ## Project
 
-- This repository is to publish GitHub Actions that check a pull request's title and description before it merges. As of 2026-11-13 it holds the checks as a Python package, and no action exists yet.
+- This repository is to publish GitHub Actions that check a pull request's title and description before it merges. It holds the checks as a Python package and no action exists yet.
 - No pull request text may reach a shell through a `${{ }}` expression in a `run:` block. Read [SECURITY.md](../SECURITY.md) before changing a workflow.
 
 ## 1) High‑Level Details
