@@ -6,14 +6,6 @@ branding:
   icon: check-circle
   color: green
 
-# The title must be a Conventional Commit subject, because a squash merge makes it the
-# commit's subject. The body is checked for the sections a repository asks for and for
-# leftover template text. Errors fail the step; warnings are annotations only.
-#
-# Nothing is checked out and nothing from the pull request runs: the checks are the
-# copy shipped with this action, on the runner's own python3. The title, body and
-# author reach the checks through `env:`, never as script text.
-
 inputs:
   max-length:
     description: The most characters the title may have, or `off` to leave it unchecked.
@@ -69,10 +61,8 @@ inputs:
 runs:
   using: composite
   steps:
-    # A virtual environment, because a runner's python3 may refuse a plain pip install
-    # (PEP 668). pip installs only the wheels whose hashes uv.lock records. Every
-    # interpreter runs with -P, which keeps the working directory off the import path:
-    # a calling job may have checked out the pull request's code there.
+    # -P keeps the working directory, where a caller may have checked out the pull
+    # request, off the import path.
     - name: Install the checks' dependencies
       shell: bash
       env:
@@ -89,8 +79,7 @@ runs:
           "$ACTION_PATH/uv.lock" >"$VENV/requirements.txt"
         "$VENV/bin/python" -P -m pip install --quiet --disable-pip-version-check \
           --no-deps --require-hashes --only-binary=:all: -r "$VENV/requirements.txt"
-    # Each value follows its option after `=`, so a value that starts with a hyphen is
-    # not read as an option.
+    # `=` keeps a value that starts with a hyphen from reading as an option.
     - name: Check the pull request
       shell: bash
       env:
@@ -115,9 +104,6 @@ runs:
           --check-body="$CHECK_BODY" \
           --skip-bot-authors="$SKIP_BOT_AUTHORS" \
           --warn-plan-ids="$WARN_PLAN_IDS"
-    # Uploaded whatever the checks found: an artifact with no findings is to tell the
-    # comment action to delete an earlier comment. It never carries the pull request's
-    # number, which the comment action is to look up, so no run can aim it elsewhere.
     - name: Upload the findings
       if: always() && inputs.upload-findings == 'true'
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
