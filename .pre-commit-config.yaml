@@ -69,7 +69,7 @@ repos:
       - id: prettier
         types_or: [css, html, javascript, json, markdown, scss, ts, yaml]
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.17.3
+    rev: v0.17.4
     hooks:
       - id: ruff-check
         types_or: [pyi, python, toml]
@@ -146,7 +146,7 @@ repos:
 
   # static type analysis
   - repo: https://github.com/astral-sh/ty-pre-commit
-    rev: v0.0.97
+    rev: v0.0.99
     hooks:
       - id: ty
         # --all-groups because default-groups is empty and the tests need their imports;
