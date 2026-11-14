@@ -46,8 +46,8 @@ def _definition_files() -> list[Path]:
     # that quietly skipped those would still pass.
     workflows = sorted((_ROOT / '.github/workflows').glob('*.y*ml'))
     actions = sorted((_ROOT / '.github/actions').glob('*/action.y*ml'))
-    # The action this repository publishes sits at the root, where `uses:` finds it.
-    published = sorted(_ROOT.glob('action.y*ml'))
+    # The actions this repository publishes: the root's, and one per subdirectory.
+    published = sorted([*_ROOT.glob('action.y*ml'), *_ROOT.glob('*/action.y*ml')])
     return workflows + actions + published
 
 
@@ -90,7 +90,7 @@ def test_the_scan_covers_every_definition_in_the_tree() -> None:
         path
         for path in (_ROOT / '.github').rglob('*.y*ml')
         if path.parent.name == 'workflows' or path.stem == 'action'
-    } | set(_ROOT.glob('action.y*ml'))
+    } | {*_ROOT.glob('action.y*ml'), *_ROOT.glob('*/action.y*ml')}
     assert found == {path.relative_to(_ROOT).as_posix() for path in tracked}
     # The set equality above is what carries the value; this only catches the scan
     # finding nothing at all.

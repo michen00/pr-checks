@@ -2,12 +2,12 @@
 
 ## Project
 
-- This repository is to publish GitHub Actions that check a pull request's title and description before it merges. It holds the checks as a Python package and no action exists yet.
+- This repository is to publish GitHub Actions that check a pull request's title and description before it merges. It holds the check action, `action.yml`, and the comment action, `comment/action.yml`; the first release is to follow.
 - No pull request text may reach a shell through a `${{ }}` expression in a `run:` block. Read [SECURITY.md](../SECURITY.md) before changing a workflow.
 
 ## 1) High‑Level Details
 
-- **Language:** Python 3.13+
+- **Language:** Python 3.12+; development uses 3.13.
 - **Dependency Management:** `uv` (manages `.venv` in project root).
 - **Task Runner:** `Makefile` is the primary entry point for all development tasks.
 
@@ -21,7 +21,9 @@
 
 ## 3) Project Layout and Architecture
 
-- `src/pr_checks/`: The checks the actions are to run: `title` and `body`, each a module with a command line, on `subject` (the subject rules) and `findings` (how results print and are recorded).
+- `src/pr_checks/`: The checks: `title` and `body`, each a module with a command line, on `subject` (the subject rules) and `findings` (how results print and are written). `python -m pr_checks` (`__main__.py`) is what the action runs.
+- `action.yml`: The check action. `.github/workflows/pr-checks.yml` runs it from each pull request's tree.
+- `comment/`: The comment action, `action.yml`, and the script it runs, `post.sh`. `.github/workflows/pr-checks-comment.yml` runs it from the default branch when the PR checks workflow finishes.
 - `scripts/`: Standalone scripts, not a package: the coverage report CI renders and `concat-gitignores.sh` (generates `.gitignore`).
 - `tests/`: Test suite.
 - `.specify/memory/constitution.md`: Project constitution (design principles, quality gates, coding standards).
