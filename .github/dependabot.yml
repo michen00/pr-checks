@@ -26,7 +26,7 @@ updates:
     cooldown:
       default-days: 7
   - package-ecosystem: github-actions
-    directory: /
+    directories: [/, /comment]
     schedule:
       interval: weekly
     groups:
