@@ -5,6 +5,7 @@ Release Tag tags that commit once a maintainer approves it. Each test pins one
 property a later edit could remove without any other check failing.
 """
 
+import json
 import os
 import shutil
 import subprocess
@@ -220,3 +221,97 @@ def test_release_tag_refuses_a_commit_that_does_not_name_its_version(
     result, outputs = _resolve(tmp_path, subject, version)
     assert result.returncode != 0
     assert outputs == {}
+
+
+_RELEASE_PULL = {
+    'merged_at': '2026-11-14T00:00:00Z',
+    'head': {'ref': 'release/v0.1.0', 'repo': {'full_name': 'owner/name'}},
+}
+
+
+def _check_branch(
+    tmp_path: Path, pulls: list[dict[str, Any]]
+) -> subprocess.CompletedProcess[str]:
+    """Run Release Tag's release-branch check with a stub `gh` printing ``pulls``."""
+    repo = tmp_path / 'repo'
+    repo.mkdir()
+    env = {
+        'PATH': f'{tmp_path / "bin"}{os.pathsep}{os.environ["PATH"]}',
+        'HOME': str(tmp_path),
+        'GIT_AUTHOR_NAME': 'GitHub',
+        'GIT_AUTHOR_EMAIL': 'noreply@github.com',
+        'GIT_COMMITTER_NAME': 'GitHub',
+        'GIT_COMMITTER_EMAIL': 'noreply@github.com',
+    }
+    for args in (
+        ['init', '-q', '-b', 'main'],
+        ['commit', '-q', '--allow-empty', '-m', 'x'],
+    ):
+        subprocess.run(['git', *args], cwd=repo, env=env, check=True)
+    (tmp_path / 'bin').mkdir()
+    stub = tmp_path / 'bin' / 'gh'
+    stub.write_text('#!/bin/sh\nprintf "%s" "$PULLS"\n', encoding='utf-8')
+    stub.chmod(0o755)
+    step = _steps(_workflow('release-tag.yml'), 'release-tag')[
+        'Check that the release branch was merged'
+    ]
+    return subprocess.run(
+        ['bash', '-e', '-c', step['run']],
+        cwd=repo,
+        env={
+            **env,
+            'PULLS': json.dumps(pulls),
+            'REPO': 'owner/name',
+            'RELEASE_TAG': 'v0.1.0',
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_release_tag_accepts_the_merge_of_its_release_branch(tmp_path: Path) -> None:
+    """The merged pull request came from this repository's release/vX.Y.Z branch."""
+    result = _check_branch(tmp_path, [_RELEASE_PULL])
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(
+    'pull',
+    [
+        pytest.param({**_RELEASE_PULL, 'merged_at': None}, id='not merged'),
+        pytest.param(
+            {**_RELEASE_PULL, 'head': {**_RELEASE_PULL['head'], 'ref': 'feature'}},
+            id='another branch',
+        ),
+        pytest.param(
+            {
+                **_RELEASE_PULL,
+                'head': {**_RELEASE_PULL['head'], 'ref': 'release/v0.2.0'},
+            },
+            id='another release',
+        ),
+        pytest.param(
+            {
+                **_RELEASE_PULL,
+                'head': {**_RELEASE_PULL['head'], 'repo': {'full_name': 'fork/name'}},
+            },
+            id='a fork',
+        ),
+    ],
+)
+def test_release_tag_refuses_a_commit_its_release_branch_did_not_bring(
+    tmp_path: Path, pull: dict[str, Any]
+) -> None:
+    """A release-titled commit from any other pull request is not tagged."""
+    result = _check_branch(tmp_path, [pull])
+    assert result.returncode == 1
+    assert 'is not the merge of' in result.stdout
+
+
+def test_the_release_branch_is_checked_before_the_key_is_imported() -> None:
+    """The check runs before any step that can read the release key."""
+    names = list(_steps(_workflow('release-tag.yml'), 'release-tag'))
+    assert names.index('Check that the release branch was merged') < names.index(
+        'Import the release key'
+    )

@@ -11,7 +11,7 @@ The flow is automated except for one approval, which stands between a merged pul
 1. **Review and merge it** with its title, `chore(release): prepare vX.Y.Z`, as the commit's subject.
 1. **Release Tag** (`.github/workflows/release-tag.yml`) starts when that commit lands on `main`, and waits on the protected `release` environment.
 1. **Approve the release.** Run `make release-approve`. It finds the waiting Release Tag run, shows the tag it will create, the major tag it will move and the commit both will point at, and asks you to confirm. The run can also be approved from its page on GitHub. Rejecting it leaves no tag behind.
-1. Once approved, Release Tag checks that the commit's subject and `pyproject.toml` name the same version, creates the GPG-signed annotated tag, verifies it and pushes it. It then moves the major tag, `v0` for a 0.y.z release and `vN` otherwise, to the same commit, signed the same way, and publishes the GitHub release.
+1. Once approved, Release Tag checks that the commit's subject and `pyproject.toml` name the same version, and that the commit is the merge of this repository's `release/vX.Y.Z` branch. It then creates the GPG-signed annotated tag, verifies it and pushes it, moves the major tag (`v0` for a 0.y.z release, `vN` otherwise) to the same commit, signed the same way, and publishes the GitHub release.
 
 A release that is never approved waits. There is no timeout and no reminder, so a merged release PR can sit indefinitely; `make release-status` shows whether that has happened.
 

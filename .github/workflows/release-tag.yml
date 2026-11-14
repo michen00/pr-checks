@@ -50,6 +50,25 @@ jobs:
             echo "major=${tag%%.*}"
           } >>"$GITHUB_OUTPUT"
 
+      # The commit must be the merge of this repository's release/vX.Y.Z branch, which
+      # Release PR creates, as in freeze-pr-links.
+      - name: Check that the release branch was merged
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.release-tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          merged="$(gh api "repos/$REPO/commits/$sha/pulls" |
+            jq --arg repo "$REPO" --arg branch "release/$RELEASE_TAG" \
+              '[.[] | select(.merged_at != null and .head.ref == $branch
+                and .head.repo.full_name == $repo)] | length')"
+          if [ "$merged" != 1 ]; then
+            echo "::error::$sha is not the merge of $REPO's release/$RELEASE_TAG branch."
+            exit 1
+          fi
+
       - name: Import the release key
         uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
         with:
