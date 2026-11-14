@@ -14,7 +14,6 @@ updates:
       prefix: chore
     cooldown:
       default-days: 7
-      semver-major-days: 30
   - package-ecosystem: pre-commit
     directory: /
     schedule:
@@ -29,22 +28,14 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: cron
-      cronjob: '0 0 1,15 * *' # 1st and 15th monthly at midnight UTC
+      interval: weekly
     groups:
       actions:
         patterns: ['*']
     commit-message:
       prefix: chore
     cooldown:
-      # default-days only. GitHub rejects the semver-* keys for this ecosystem --
-      # "not supported for the package ecosystem 'github-actions'" -- and an
-      # invalid key here does not degrade gracefully: it invalidates the file and
-      # drops this whole entry, grouping and ignore rules included. The
-      # check-dependabot schema hook does not catch it, because the rejection is
-      # server-side rather than schematic.
-      #
-      # So one number covers every actions update. A patch is not safer than a
-      # major when the risk is a compromised publisher rather than a changed
-      # interface, and these packages execute with this repository's own token.
-      default-days: 30
+      # GitHub rejects the semver-* keys for this ecosystem, and an invalid key
+      # drops this whole entry, grouping included. The check-dependabot hook
+      # does not catch it: GitHub rejects the key when it reads the file.
+      default-days: 7
