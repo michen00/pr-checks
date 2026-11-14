@@ -17,7 +17,7 @@ Usage:
 
 from __future__ import annotations
 
-__all__ = ('check_body', 'main')
+__all__ = 'check_body', 'main'
 
 import argparse
 import re
