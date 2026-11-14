@@ -12,8 +12,6 @@ def local(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
     """Run every test as a terminal would, with no title in the environment."""
     monkeypatch.delenv('GITHUB_ACTIONS', raising=False)
     monkeypatch.delenv('PR_TITLE', raising=False)
-    monkeypatch.delenv('PR_WARNINGS_FILE', raising=False)
-    monkeypatch.delenv('PR_ERRORS_FILE', raising=False)
     return monkeypatch
 
 
