@@ -1,0 +1,127 @@
+---
+name: PR checks
+description: Check a pull request's title and body before it merges.
+author: Michael I Chen
+branding:
+  icon: check-circle
+  color: green
+
+# The title must be a Conventional Commit subject, because a squash merge makes it the
+# commit's subject. The body is checked for the sections a repository asks for and for
+# leftover template text. Errors fail the step; warnings are annotations only.
+#
+# Nothing is checked out and nothing from the pull request runs: the checks are the
+# copy shipped with this action, on the runner's own python3. The title, body and
+# author reach the checks through `env:`, never as script text.
+
+inputs:
+  max-length:
+    description: The most characters the title may have, or `off` to leave it unchecked.
+    required: false
+    default: '50'
+  required-sections:
+    description: >-
+      Level-two headings the body should have, one per line. A missing one is a warning.
+    required: false
+    default: ''
+  check-title:
+    description: Whether to check the title.
+    required: false
+    default: 'true'
+  check-body:
+    description: Whether to check the body.
+    required: false
+    default: 'true'
+  skip-bot-authors:
+    description: >-
+      Whether to check nothing when the author's login ends in `[bot]`, as Dependabot's
+      does.
+    required: false
+    default: 'true'
+  warn-plan-ids:
+    description: >-
+      Whether to warn on a plan identifier in the title, such as `Phase 2`, `Slice 1a`,
+      `S3` or `F1`. The pattern also matches names such as Amazon S3.
+    required: false
+    default: 'false'
+  upload-findings:
+    description: >-
+      Whether to upload the findings as an artifact, for the comment action to post.
+    required: false
+    default: 'true'
+  artifact-name:
+    description: The name of the findings artifact.
+    required: false
+    default: pr-check-findings
+  title:
+    description: The title to check. Defaults to the pull request's.
+    required: false
+    default: ${{ github.event.pull_request.title }}
+  body:
+    description: The body to check. Defaults to the pull request's.
+    required: false
+    default: ${{ github.event.pull_request.body }}
+  author:
+    description: The login `skip-bot-authors` reads. Defaults to the pull request's author.
+    required: false
+    default: ${{ github.event.pull_request.user.login }}
+
+runs:
+  using: composite
+  steps:
+    # A virtual environment, because a runner's python3 may refuse a plain pip install
+    # (PEP 668). pip installs only the wheels whose hashes uv.lock records.
+    - name: Install the checks' dependencies
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        VENV: ${{ runner.temp }}/pr-checks-venv
+      run: |
+        set -euo pipefail
+        if ! python3 -c 'import sys; raise SystemExit(sys.version_info < (3, 12))'; then
+          echo "::error::pr-checks needs Python 3.12 or later on the runner, as python3"
+          exit 1
+        fi
+        python3 -m venv "$VENV"
+        PYTHONPATH="$ACTION_PATH/src" python3 -P -m pr_checks.requirements \
+          "$ACTION_PATH/uv.lock" >"$VENV/requirements.txt"
+        "$VENV/bin/python" -m pip install --quiet --disable-pip-version-check \
+          --no-deps --require-hashes --only-binary=:all: -r "$VENV/requirements.txt"
+    # -P keeps the working directory off the import path: a calling job may have
+    # checked out the pull request's code there. Each value follows its option after
+    # `=`, so a value that starts with a hyphen is not read as an option.
+    - name: Check the pull request
+      shell: bash
+      env:
+        PYTHONPATH: ${{ github.action_path }}/src
+        VENV: ${{ runner.temp }}/pr-checks-venv
+        FINDINGS_DIR: ${{ runner.temp }}/pr-checks-findings
+        PR_TITLE: ${{ inputs.title }}
+        PR_BODY: ${{ inputs.body }}
+        PR_AUTHOR: ${{ inputs.author }}
+        MAX_LENGTH: ${{ inputs.max-length }}
+        REQUIRED_SECTIONS: ${{ inputs.required-sections }}
+        CHECK_TITLE: ${{ inputs.check-title }}
+        CHECK_BODY: ${{ inputs.check-body }}
+        SKIP_BOT_AUTHORS: ${{ inputs.skip-bot-authors }}
+        WARN_PLAN_IDS: ${{ inputs.warn-plan-ids }}
+      run: |
+        "$VENV/bin/python" -P -m pr_checks \
+          --findings-dir="$FINDINGS_DIR" \
+          --max-length="$MAX_LENGTH" \
+          --required-sections="$REQUIRED_SECTIONS" \
+          --check-title="$CHECK_TITLE" \
+          --check-body="$CHECK_BODY" \
+          --skip-bot-authors="$SKIP_BOT_AUTHORS" \
+          --warn-plan-ids="$WARN_PLAN_IDS"
+    # Uploaded whatever the checks found: an artifact with no findings is to tell the
+    # comment action to delete an earlier comment. It never carries the pull request's
+    # number, which the comment action is to look up, so no run can aim it elsewhere.
+    - name: Upload the findings
+      if: always() && inputs.upload-findings == 'true'
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ runner.temp }}/pr-checks-findings
+        if-no-files-found: ignore
+        retention-days: 1

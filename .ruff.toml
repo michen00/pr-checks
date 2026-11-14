@@ -70,9 +70,15 @@ max-complexity = 15
   'S603',  # subprocess-without-shell-equals-true
   'S607',  # start-process-with-partial-path (`bash` and `git` off PATH)
 ]
+# Runs the action's check step under `bash`, found on PATH.
+'tests/test_action.py' = [
+  'S603',  # subprocess-without-shell-equals-true
+  'S607',  # start-process-with-partial-path
+]
 # A test docstring states what holds rather than commanding.
 'tests/**/test_*.py' = ['D401']
-# Reports a check's findings on stdout and stderr.
+# Report a check's findings and verdicts on stdout and stderr.
+'src/pr_checks/__main__.py' = ['T201']  # Use of print
 'src/pr_checks/findings.py' = ['T201']  # Use of print
 # Standalone scripts, not a package, that report on stdout.
 'scripts/*.py' = [

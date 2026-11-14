@@ -1,0 +1,41 @@
+---
+name: PR checks
+
+# Runs this repository's own check action, from the pull request's tree, so a change to
+# the action is tried before it merges. It runs on two runner images because the action
+# uses the runner's python3: 3.12 on ubuntu-24.04 and 3.14 on ubuntu-latest, as of
+# 2026-11-14. Only ubuntu-latest uploads the findings, since an artifact name may be
+# used once per run.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+# Read-only: the action runs from the pull request's tree.
+permissions:
+  contents: read
+
+# cancel-in-progress stays false so each push's findings are uploaded in order.
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: PR checks (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./
+        with:
+          required-sections: |
+            Summary
+            Testing
+          upload-findings: ${{ matrix.os == 'ubuntu-latest' }}
