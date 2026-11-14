@@ -163,6 +163,22 @@ def test_every_input_is_used() -> None:
     assert unused == []
 
 
+def test_every_interpreter_keeps_the_working_directory_off_its_path() -> None:
+    """Each python call has -P, so no module in a checked-out tree can shadow one.
+
+    A calling job may have checked out the pull request's code in the working
+    directory, and `python -m venv`, `-m pip` and `-c` would import from it.
+    """
+    calls = [
+        line.strip()
+        for step in _ACTION['runs']['steps']
+        for line in step.get('run', '').splitlines()
+        if re.search(r'(?:\bpython3|/bin/python")\s', line)
+    ]
+    assert len(calls) == 5
+    assert [call for call in calls if not re.search(r'python3?"? -P ', call)] == []
+
+
 def test_the_upload_takes_the_directory_the_checks_write() -> None:
     """The artifact is the findings directory the check step names."""
     findings_dir = _step('Check the pull request')['env']['FINDINGS_DIR']
