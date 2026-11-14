@@ -20,6 +20,14 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 
+def _command_data(message: str) -> str:
+    """Escape a workflow command's message, as GitHub's own toolkit does.
+
+    An unescaped newline in a finding would start a second command.
+    """
+    return message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+
+
 def _record_roots() -> tuple[str, ...]:
     """Return the checkout and temporary directories, each ending in a separator."""
     roots = (str(Path.cwd()), os.environ.get('RUNNER_TEMP', ''), tempfile.gettempdir())
@@ -52,7 +60,7 @@ class Findings:
         reaches only the job log. GitHub reads workflow commands from stdout.
         """
         if os.environ.get('GITHUB_ACTIONS', ''):
-            print(f'::{severity}::{message}')
+            print(f'::{severity}::{_command_data(message)}')
         else:
             print(f'{severity}: {message}', file=sys.stderr)
 

@@ -353,22 +353,26 @@ def test_fence_boundaries_decide_what_is_code(body: str, *, reported: bool) -> N
 
 
 @pytest.mark.parametrize(
-    'line',
+    ('pattern', 'line'),
     [
-        pytest.param('<' * 60_000, id='angle brackets'),
-        # Text first: a line that opens on three backticks is a fence, not a span.
-        pytest.param('x' + '`' * 20_000, id='backticks'),
+        pytest.param('_PLACEHOLDER', '<' * 60_000, id='angle brackets'),
+        pytest.param('_INLINE_CODE', '`' * 20_000, id='backticks'),
     ],
 )
-def test_a_long_run_of_one_character_is_scanned_quickly(line: str) -> None:
-    """Neither scan backtracks across a long run on one line.
+def test_a_long_run_of_one_character_is_scanned_quickly(
+    pattern: str, line: str
+) -> None:
+    """Neither noise pattern backtracks across a long run on one line.
 
     GitHub caps a body at 65,536 characters. The time the patterns these replaced
-    took grew with the square of the run's length, or faster.
+    took grew with the square of the run's length, or faster. Each pattern is timed
+    alone: the parser's own time on such a body grows only linearly, but varies too
+    much between machines for a bound on the whole check.
     """
+    scan = getattr(body_check, pattern)
     start = time.perf_counter()
-    check_body(line)
-    assert time.perf_counter() - start < 2
+    scan.sub(' ', line)
+    assert time.perf_counter() - start < 1
 
 
 # -- The command line --

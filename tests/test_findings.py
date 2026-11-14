@@ -55,6 +55,20 @@ def test_a_finding_becomes_an_annotation_in_actions(
     assert capsys.readouterr().out == '::warning::title: w\n::error::title: e\n'
 
 
+def test_an_annotation_cannot_start_a_second_command(
+    local: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A newline, carriage return or percent sign in a finding is escaped."""
+    local.setenv('GITHUB_ACTIONS', 'true')
+
+    Findings(warnings=['title: a\r\n::stop-commands::x 100%']).emit('title OK')
+
+    assert capsys.readouterr().out.splitlines() == [
+        '::warning::title: a%0D%0A::stop-commands::x 100%25',
+        'title OK (with warnings)',
+    ]
+
+
 def test_merge_folds_one_result_into_another() -> None:
     """`merge` appends the other result's errors and warnings."""
     found = Findings(errors=['a'], warnings=['b'])
