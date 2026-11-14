@@ -245,9 +245,6 @@ jobs:
           path: coverage
           if-no-files-found: ignore
 
-  # The action runs on the runner's own python3, which differs by image: 3.12 on
-  # ubuntu-24.04 and 3.14 on ubuntu-26.04, as of 2026-11-14. These run the tests on
-  # both; the pytest job above runs them on PYTHON_VERSION, with coverage.
   pytest-runner-pythons:
     name: pytest (${{ matrix.python }})
     runs-on: ubuntu-latest
