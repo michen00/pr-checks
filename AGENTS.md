@@ -2,7 +2,7 @@
 
 ## 1. Repository Identity & Purpose
 
-- This repository is to publish GitHub Actions that check a pull request's title and description before it merges. It holds the check action, `action.yml`; the comment action and the first release are to follow.
+- This repository is to publish GitHub Actions that check a pull request's title and description before it merges. It holds the check action, `action.yml`, and the comment action, `comment/action.yml`; the first release is to follow.
 - **The actions will read text a pull request's author controls.** Such text must reach a shell through `env:` or a file, never through a `${{ }}` expression in a `run:` block; `tests/test_workflow_injection.py` fails on any such expression in a workflow or composite action here.
 - **Write in defined terms.** Name the check, the input and the result. Avoid idiom and metaphor.
 - **Use the present indicative only for what is true now.** Write a rule, a plan or a future state with a modal verb (_must_, _should_, _may_, _will_ with its date or trigger), so no reader takes it for a description.
@@ -53,6 +53,7 @@ The `Makefile` is the primary entry point for development tasks.
 
 - `src/pr_checks/`: The checks: `title` and `body`, each a module with a command line, on `subject` (the subject rules) and `findings` (how results print and are written). `python -m pr_checks` (`__main__.py`) is what the action runs.
 - `action.yml`: The check action. `.github/workflows/pr-checks.yml` runs it from each pull request's tree.
+- `comment/`: The comment action, `action.yml`, and the script it runs, `post.sh`. `.github/workflows/pr-checks-comment.yml` runs it from the default branch when the PR checks workflow finishes.
 - `scripts/`: Standalone scripts, not a package: `coverage_diff_report.py` (the coverage report CI renders) and `concat-gitignores.sh` (generates `.gitignore`).
 - `tests/`: Test suite.
 - `.github/`: GitHub Actions workflows. [`.github/instructions/CI.instructions.md`](.github/instructions/CI.instructions.md) says which tests enforce the workflows' rules and which rules to keep by hand.

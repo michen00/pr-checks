@@ -1,0 +1,31 @@
+---
+name: PR checks comment
+
+# workflow_run takes this definition, and the checkout below, from the default branch,
+# so the write scope never runs the pull request's code.
+on:
+  workflow_run:
+    workflows: [PR checks]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+
+# The upsert reads, then writes, so two runs for one pull request must not overlap.
+concurrency:
+  group: >-
+    pr-checks-comment-${{ github.event.workflow_run.head_repository.full_name }}-${{
+    github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./comment

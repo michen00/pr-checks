@@ -1,0 +1,62 @@
+---
+name: PR checks comment
+description: Post the PR checks' findings as one comment on the pull request.
+author: Michael I Chen
+branding:
+  icon: message-square
+  color: green
+
+inputs:
+  github-token:
+    description: >-
+      Token that downloads the checks' artifact and writes the comment. It needs
+      `actions: read` and `pull-requests: write`.
+    required: false
+    default: ${{ github.token }}
+  artifact-name:
+    description: The findings artifact's name, as the check action uploaded it.
+    required: false
+    default: pr-check-findings
+  marker:
+    description: >-
+      Hidden text the comment starts with, so the action finds its own comment among
+      the others.
+    required: false
+    default: '<!-- pr-checks:findings -->'
+  handoff:
+    description: Whether to end the comment with a prompt to hand to a coding agent.
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    # A run that uploaded nothing, such as one the check action skipped, leaves the
+    # comment as it is.
+    - name: Download the findings
+      id: findings
+      continue-on-error: true
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ runner.temp }}/pr-checks-comment
+        run-id: ${{ github.event.workflow_run.id }}
+        github-token: ${{ inputs.github-token }}
+    - name: Post or clear the comment
+      if: steps.findings.outcome == 'success'
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ github.repository }}
+        HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+        HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        FINDINGS_DIR: ${{ runner.temp }}/pr-checks-comment
+        MARKER: ${{ inputs.marker }}
+        HANDOFF: ${{ inputs.handoff }}
+      run: bash "$ACTION_PATH/post.sh"
+    - name: Say why the comment is unchanged
+      if: steps.findings.outcome != 'success'
+      shell: bash
+      run: echo "::notice::this run uploaded no findings, so the comment is unchanged"

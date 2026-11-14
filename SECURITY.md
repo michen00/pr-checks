@@ -16,3 +16,5 @@ The check action reads a pull request's title and description, which the pull re
 
 - No pull request text reaches a shell through a workflow expression. An expression in a `run:` block is substituted before the shell parses the line, so each value travels through `env:` or a file instead. `tests/test_workflow_injection.py` fails on any expression in a `run:` block of a workflow or composite action here.
 - A workflow that runs on `pull_request`, and so runs the pull request's code, holds no write scope. `tests/test_workflows.py` fails on one that does.
+
+The comment action writes, so it runs on `workflow_run`, from the default branch. It renders each finding with HTML and Markdown link syntax escaped, takes the pull request's number from the API rather than from the artifact the pull request's run uploaded, and edits or deletes only a bot's comment that starts with its marker.
