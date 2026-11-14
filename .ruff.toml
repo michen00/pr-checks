@@ -46,7 +46,8 @@ ignore = [
 # The google convention turns D401 (imperative mood) off; the constitution wants it.
 extend-select = ['D401']
 fixable = ['ALL']
-unfixable = []
+# Report a print rather than delete it.
+unfixable = ['T201']
 dummy-variable-rgx = '^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$'
 
 [lint.flake8-quotes]
@@ -70,10 +71,13 @@ max-complexity = 15
   'S603',  # subprocess-without-shell-equals-true
   'S607',  # start-process-with-partial-path (`bash` and `git` off PATH)
 ]
+# Runs the action's check step under `bash`, found on PATH.
+'tests/test_action.py' = [
+  'S603',  # subprocess-without-shell-equals-true
+  'S607',  # start-process-with-partial-path
+]
 # A test docstring states what holds rather than commanding.
 'tests/**/test_*.py' = ['D401']
-# Reports a check's findings on stdout and stderr.
-'src/pr_checks/findings.py' = ['T201']  # Use of print
 # Standalone scripts, not a package, that report on stdout.
 'scripts/*.py' = [
   'INP001',  # implicit-namespace-package

@@ -1,4 +1,4 @@
-"""Tests that every action a workflow runs is pinned to code that cannot change.
+"""Tests that every action a workflow or this repository's action runs is pinned.
 
 A tag can be moved to other code after it was reviewed; a commit SHA cannot. Every
 `uses:` is pinned to a full commit SHA with the release it names in a trailing comment,
@@ -17,7 +17,8 @@ import yaml
 
 __all__ = ()
 
-_WORKFLOWS = Path(__file__).resolve().parents[1] / '.github' / 'workflows'
+_ROOT = Path(__file__).resolve().parents[1]
+_WORKFLOWS = _ROOT / '.github' / 'workflows'
 _USES = re.compile(
     r'^\s*(?:-\s+)?uses:\s*(?P<ref>\S+)\s*(?:#\s*(?P<comment>.*\S))?\s*$'
 )
@@ -45,12 +46,17 @@ def _problem(line: str) -> str | None:
 
 
 def _uses_lines() -> list[Any]:
-    """Return every `uses:` line in the workflows, named by file and line number."""
+    """Return every `uses:` line in the definitions, named by file and line number."""
     params = []
-    for path in sorted(_WORKFLOWS.glob('*.y*ml')):
+    definitions = [
+        *_WORKFLOWS.glob('*.y*ml'),
+        *_ROOT.glob('action.y*ml'),
+        *_ROOT.glob('*/action.y*ml'),
+    ]
+    for path in sorted(definitions):
         lines = path.read_text(encoding='utf-8').splitlines()
         params.extend(
-            pytest.param(line, id=f'{path.name}:{number}')
+            pytest.param(line, id=f'{path.relative_to(_ROOT)}:{number}')
             for number, line in enumerate(lines, 1)
             if _USES.match(line)
         )
