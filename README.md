@@ -31,12 +31,14 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: michen00/pr-checks@v1 # once v1 is released
+      - uses: michen00/pr-checks@v0
         with:
           required-sections: |
             Summary
             Testing
 ```
+
+`v0` will move to each 0.y.z release as it is published; pin a `vX.Y.Z` tag, or the commit it points at, to stay on one release.
 
 The action checks out nothing. It sets up uv with `astral-sh/setup-uv`, which puts uv on the job's `PATH` for later steps, and runs on the runner's own `python3`, which must be 3.12 or later; CI tries it on `ubuntu-24.04` and `ubuntu-latest`.
 
@@ -68,10 +70,10 @@ jobs:
   comment:
     runs-on: ubuntu-latest
     steps:
-      - uses: michen00/pr-checks/comment@<commit SHA> # once v1 is released
+      - uses: michen00/pr-checks/comment@<commit SHA> # vX.Y.Z
 ```
 
-It runs in a workflow of its own because `workflow_run` takes the definition from the default branch, so the token that writes the comment never runs the pull request's code. Pin it by commit SHA, since it writes.
+It runs in a workflow of its own because `workflow_run` takes the definition from the default branch, so the token that writes the comment never runs the pull request's code. Pin it to the commit a release's tag points at, since it writes, with the release in a trailing comment so that Dependabot moves the two together. `gh api repos/michen00/pr-checks/commits/vX.Y.Z --jq .sha` prints that commit.
 
 | Input | Default | Meaning |
 | --- | --- | --- |
@@ -89,7 +91,7 @@ make test      # run the tests with coverage
 make help      # list every target
 ```
 
-[CONTRIBUTING.md](CONTRIBUTING.md) covers branches, commits and pull requests, and [SECURITY.md](SECURITY.md) covers reporting a vulnerability.
+[CONTRIBUTING.md](CONTRIBUTING.md) covers branches, commits and pull requests, [RELEASING.md](RELEASING.md) covers making a release, and [SECURITY.md](SECURITY.md) covers reporting a vulnerability.
 
 ## License
 

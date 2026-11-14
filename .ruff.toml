@@ -71,6 +71,11 @@ max-complexity = 15
   'S603',  # subprocess-without-shell-equals-true
   'S607',  # start-process-with-partial-path (`bash` and `git` off PATH)
 ]
+# Run the release scripts, and Release Tag's resolve step under `bash` and `git`.
+'tests/test_release_{scripts,workflows}.py' = [
+  'S603',  # subprocess-without-shell-equals-true
+  'S607',  # start-process-with-partial-path
+]
 # Run an action's script under `bash`, found on PATH.
 'tests/test_{action,comment}.py' = [
   'S603',  # subprocess-without-shell-equals-true

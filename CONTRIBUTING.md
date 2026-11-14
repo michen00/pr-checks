@@ -27,7 +27,7 @@ CI runs the same hooks and tests on every pull request.
 
 Write Markdown prose as one line per paragraph. The `unwrap-markdown-prose-py` hook reflows a hard-wrapped paragraph in place and stops the commit so you can see what changed.
 
-A change to a workflow has to keep the properties `tests/test_workflows.py`, `tests/test_workflow_injection.py` and `tests/test_workflow_pins.py` pin.
+A change to a workflow has to keep the properties `tests/test_workflows.py`, `tests/test_workflow_injection.py`, `tests/test_workflow_pins.py` and `tests/test_release_workflows.py` pin.
 
 ## Opening the PR
 

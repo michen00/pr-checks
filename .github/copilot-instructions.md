@@ -24,7 +24,7 @@
 - `src/pr_checks/`: The checks: `title` and `body`, each a module with a command line, on `subject` (the subject rules) and `findings` (how results print and are written). `python -m pr_checks` (`__main__.py`) is what the action runs.
 - `action.yml`: The check action. `.github/workflows/pr-checks.yml` runs it from each pull request's tree.
 - `comment/`: The comment action, `action.yml`, and the script it runs, `post.sh`. `.github/workflows/pr-checks-comment.yml` runs it from the default branch when the PR checks workflow finishes.
-- `scripts/`: Standalone scripts, not a package: the coverage report CI renders and `concat-gitignores.sh` (generates `.gitignore`).
+- `scripts/`: Standalone scripts, not a package: the coverage report CI renders, `concat-gitignores.sh` (generates `.gitignore`), `update-unreleased.sh` (refreshes the changelog's Unreleased section), and `release/`, the release workflows' scripts. [RELEASING.md](../RELEASING.md) covers the release flow.
 - `tests/`: Test suite.
 - `.specify/memory/constitution.md`: Project constitution (design principles, quality gates, coding standards).
 - `pyproject.toml`: Project configuration, dependencies, and tool settings.

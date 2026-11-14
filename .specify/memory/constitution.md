@@ -31,7 +31,7 @@ Start simple. Reject speculative complexity.
 - **Testing**: `pytest` with coverage reporting.
 - **Pre-commit**: Hooks for code quality, security scanning, type checking, and commit message validation.
 - **CI/CD**: GitHub Actions.
-- **Changelog**: none yet. The release tooling is to generate one with `git-cliff` from the conventional commits.
+- **Changelog**: `CHANGELOG.md`, which `git-cliff` generates from the conventional commits, as `cliff.toml` configures it.
 
 Adding or removing a dependency requires updating `pyproject.toml`, running `uv lock`, and verifying with `make check`.
 
@@ -79,7 +79,7 @@ All commits MUST follow the Conventional Commits specification: `<type>(<scope>)
 - Subject line MUST be imperative mood, lowercase start, and under 51 characters.
 - Body lines MUST wrap at 72 characters.
 - Each commit MUST represent one atomic logical change.
-- Once the release tooling generates a changelog from these commits, the commits are its source of truth: its Unreleased section must be regenerated, never hand-maintained, and manual edits are limited to released sections for light curation, factual corrections, or formatting cleanup.
+- The commits are the changelog's source of truth. Each release PR regenerates `CHANGELOG.md` from them, so the file MUST NOT be edited by hand; to change how a commit appears in it, change `cliff.toml`.
 
 ### Documentation Hygiene
 
@@ -97,4 +97,4 @@ This constitution is the authoritative reference for all development practices i
 
 _When in doubt, choose the approach that is simplest to test._
 
-**Version**: 1.1.0 | **Ratified**: 2026-03-15 | **Last amended**: 2026-10-14
+**Version**: 1.2.0 | **Ratified**: 2026-03-15 | **Last amended**: 2026-11-14
