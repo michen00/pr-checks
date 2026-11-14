@@ -7,7 +7,7 @@ GitHub Actions that check a pull request's title and description before it merge
 
 ## Status
 
-Pre-release. As of 2026-11-12 this repository holds only its tooling: linting, type checking, tests and CI. The checks and the actions that run them are to follow, and nothing here is ready to use yet.
+Pre-release. As of 2026-11-13 this repository holds the title and body checks as a Python package, which no action runs yet. Nothing here is ready to use.
 
 ## Development
 

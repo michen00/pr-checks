@@ -2,7 +2,7 @@
 
 ## 1. Repository Identity & Purpose
 
-- This repository is to publish GitHub Actions that check a pull request's title and description before it merges. As of 2026-11-12 it holds only its tooling: linting, type checking, tests and CI. No action exists yet, and `src/pr_checks/` holds only a package docstring.
+- This repository is to publish GitHub Actions that check a pull request's title and description before it merges. As of 2026-11-13 it holds the checks as a Python package, and no action exists yet.
 - **The actions will read text a pull request's author controls.** Such text must reach a shell through `env:` or a file, never through a `${{ }}` expression in a `run:` block; `tests/test_workflow_injection.py` fails on any such expression in a workflow or composite action here.
 - **Write in defined terms.** Name the check, the input and the result. Avoid idiom and metaphor.
 - **Use the present indicative only for what is true now.** Write a rule, a plan or a future state with a modal verb (_must_, _should_, _may_, _will_ with its date or trigger), so no reader takes it for a description.
@@ -51,7 +51,7 @@ The `Makefile` is the primary entry point for development tasks.
 
 ## 3. Project Structure
 
-- `src/pr_checks/`: The package the actions are to run. It holds only its docstring so far.
+- `src/pr_checks/`: The checks the actions are to run: `title` and `body`, each a module with a command line, on `subject` (the subject rules) and `findings` (how results print and are recorded).
 - `scripts/`: Standalone scripts, not a package: `coverage_diff_report.py` (the coverage report CI renders) and `concat-gitignores.sh` (generates `.gitignore`).
 - `tests/`: Test suite.
 - `.github/`: GitHub Actions workflows. [`.github/instructions/CI.instructions.md`](.github/instructions/CI.instructions.md) says which tests enforce the workflows' rules and which rules to keep by hand.
@@ -113,7 +113,7 @@ title as its subject, so a trailing period ends up on main.
 
 - **Code Style:** Enforced by `ruff` and `ty`, with `basedpyright` and `pylint` running only the checks those two do not make.
 - **Verification:** Run `make check` to perform final checks (formatting, linting, type checking, pre-commit hooks, and tests) after making code changes.
-- **Dependencies:** The package has no runtime dependencies. A runtime dependency must be justified in its pull request, because the actions will install it on every run.
+- **Dependencies:** The package's one runtime dependency is markdown-it-py, which the body check uses to find code blocks. Another must be justified in its pull request, because the actions will install it on every run.
 - **Python Idioms:**
   - **Return Values:** Use `NamedTuple` (or `dataclass`) for return values with more than 3 elements, instead of plain tuples.
   - **Enums:** Use `StrEnum` (Python 3.11+) and `auto()` for string-based enumerations.

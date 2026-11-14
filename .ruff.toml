@@ -72,6 +72,8 @@ max-complexity = 15
 ]
 # A test docstring states what holds rather than commanding.
 'tests/**/test_*.py' = ['D401']
+# Reports a check's findings on stdout and stderr.
+'src/pr_checks/findings.py' = ['T201']  # Use of print
 # Standalone scripts, not a package, that report on stdout.
 'scripts/*.py' = [
   'INP001',  # implicit-namespace-package
