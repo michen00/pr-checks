@@ -7,7 +7,7 @@
 
 ## 1) High‑Level Details
 
-- **Language:** Python 3.13+
+- **Language:** Python 3.12+; development uses 3.13.
 - **Dependency Management:** `uv` (manages `.venv` in project root).
 - **Task Runner:** `Makefile` is the primary entry point for all development tasks.
 

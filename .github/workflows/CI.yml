@@ -19,7 +19,7 @@ defaults:
     shell: bash -el {0}
 
 env:
-  # Kept in step with .python-version and pyproject.toml's requires-python. The
+  # The version development uses, kept in step with .python-version. The
   # `run-ci` job name below repeats it literally, because a required status
   # context cannot be built from an expression.
   PYTHON_VERSION: '3.13'
@@ -245,6 +245,36 @@ jobs:
           path: coverage
           if-no-files-found: ignore
 
+  # The action runs on the runner's own python3, which differs by image: 3.12 on
+  # ubuntu-24.04 and 3.14 on ubuntu-26.04, as of 2026-11-14. These run the tests on
+  # both; the pytest job above runs them on PYTHON_VERSION, with coverage.
+  pytest-runner-pythons:
+    name: pytest (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.12', '3.14']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            .github/workflows/.cache-buster
+            .github/workflows/CI.yml
+            noxfile.py
+            pyproject.toml
+            uv.lock
+          cache-suffix: ${{ github.job }}-${{ matrix.python }}
+          python-version: ${{ matrix.python }}
+      - name: Run tests
+        run: uv run --locked --only-group ci nox -s test
+
   run-ci:
     # The aggregate of every job above, and the context the ruleset main-protect
     # requires. The name is kept stable so the job set above can grow without
@@ -254,7 +284,7 @@ jobs:
     # `gh api repos/michen00/pr-checks/rulesets` before changing it.
     # bot-automerge.yml names this context and arms only while a ruleset requires it.
     name: Run CI (3.13)
-    needs: [secrets, precommit, analysis, pytest]
+    needs: [secrets, precommit, analysis, pytest, pytest-runner-pythons]
     # `always()` so a skipped or canceled dependency reddens this job rather
     # than passing it by omission.
     if: always()
