@@ -23,6 +23,7 @@ __all__ = ('FINDINGS_FORMAT', 'main')
 
 import argparse
 import os
+import sys
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -134,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
     author = os.environ.get('PR_AUTHOR', '')
     results: dict[str, Findings] = {}
     if args.skip_bot_authors and author.endswith('[bot]'):
-        print(f'{author} is a bot, so no check runs')
+        sys.stdout.write(f'{author} is a bot, so no check runs\n')
     else:
         if args.check_title:
             title = os.environ.get('PR_TITLE', '')
@@ -156,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
     for check, found in results.items():
         found.publish()
         length_checked = check != 'title' or args.max_length is not None
-        print(_verdict(check, found, length_checked=length_checked))
+        sys.stdout.write(_verdict(check, found, length_checked=length_checked) + '\n')
     if args.findings_dir is not None:
         _record(results, args.findings_dir)
     return 0 if all(found.ok for found in results.values()) else 1

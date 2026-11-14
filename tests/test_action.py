@@ -164,19 +164,22 @@ def test_every_input_is_used() -> None:
 
 
 def test_every_interpreter_keeps_the_working_directory_off_its_path() -> None:
-    """Each python call has -P, so no module in a checked-out tree can shadow one.
-
-    A calling job may have checked out the pull request's code in the working
-    directory, and `python -m venv`, `-m pip` and `-c` would import from it.
-    """
+    """Each python call has -P, so no module in a checked-out tree can shadow one."""
     calls = [
         line.strip()
         for step in _ACTION['runs']['steps']
         for line in step.get('run', '').splitlines()
-        if re.search(r'(?:\bpython3|/bin/python")\s', line)
+        if re.match(r'\s*"?[^\s"]*python3?"?\s', line)
     ]
-    assert len(calls) == 5
-    assert [call for call in calls if not re.search(r'python3?"? -P ', call)] == []
+    assert calls
+    assert [call for call in calls if ' -P ' not in call] == []
+
+
+def test_uv_installs_only_what_the_lock_pins() -> None:
+    """`--locked` fails on a lock that no longer matches pyproject.toml."""
+    command = _step("Install the checks' dependencies")['run']
+    assert '--locked' in command
+    assert '--no-install-project' in command
 
 
 def test_the_upload_takes_the_directory_the_checks_write() -> None:

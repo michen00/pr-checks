@@ -46,7 +46,8 @@ ignore = [
 # The google convention turns D401 (imperative mood) off; the constitution wants it.
 extend-select = ['D401']
 fixable = ['ALL']
-unfixable = []
+# Report a print rather than delete it.
+unfixable = ['T201']
 dummy-variable-rgx = '^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$'
 
 [lint.flake8-quotes]
@@ -77,9 +78,6 @@ max-complexity = 15
 ]
 # A test docstring states what holds rather than commanding.
 'tests/**/test_*.py' = ['D401']
-# Report a check's findings and verdicts on stdout and stderr.
-'src/pr_checks/__main__.py' = ['T201']  # Use of print
-'src/pr_checks/findings.py' = ['T201']  # Use of print
 # Standalone scripts, not a package, that report on stdout.
 'scripts/*.py' = [
   'INP001',  # implicit-namespace-package

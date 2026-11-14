@@ -38,7 +38,7 @@ jobs:
             Testing
 ```
 
-The action checks out nothing. It runs on the runner's own `python3`, which must be 3.12 or later; CI tries it on `ubuntu-24.04` and `ubuntu-latest`.
+The action checks out nothing. It sets up uv with `astral-sh/setup-uv`, which puts uv on the job's `PATH` for later steps, and runs on the runner's own `python3`, which must be 3.12 or later; CI tries it on `ubuntu-24.04` and `ubuntu-latest`.
 
 | Input | Default | Meaning |
 | --- | --- | --- |

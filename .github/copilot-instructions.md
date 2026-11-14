@@ -21,7 +21,7 @@
 
 ## 3) Project Layout and Architecture
 
-- `src/pr_checks/`: The checks: `title` and `body`, each a module with a command line, on `subject` (the subject rules) and `findings` (how results print and are written). `python -m pr_checks` (`__main__.py`) is what the action runs; `requirements` reads the runtime dependencies from `uv.lock` for the action to install, using only the standard library.
+- `src/pr_checks/`: The checks: `title` and `body`, each a module with a command line, on `subject` (the subject rules) and `findings` (how results print and are written). `python -m pr_checks` (`__main__.py`) is what the action runs.
 - `action.yml`: The check action. `.github/workflows/pr-checks.yml` runs it from each pull request's tree.
 - `scripts/`: Standalone scripts, not a package: the coverage report CI renders and `concat-gitignores.sh` (generates `.gitignore`).
 - `tests/`: Test suite.

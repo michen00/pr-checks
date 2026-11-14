@@ -33,9 +33,9 @@ def _publish(severity: str, message: str) -> None:
     only the job log. GitHub reads workflow commands from stdout.
     """
     if os.environ.get('GITHUB_ACTIONS', ''):
-        print(f'::{severity}::{_command_data(message)}')
+        sys.stdout.write(f'::{severity}::{_command_data(message)}\n')
     else:
-        print(f'{severity}: {message}', file=sys.stderr)
+        sys.stderr.write(f'{severity}: {message}\n')
 
 
 @dataclass(slots=True)
@@ -71,7 +71,7 @@ class Findings:
         self.publish()
         if self.ok:
             suffix = ' (with warnings)' if self.warnings else ''
-            print(f'{ok_message}{suffix}')
+            sys.stdout.write(f'{ok_message}{suffix}\n')
             return 0
         return 1
 

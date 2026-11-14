@@ -61,25 +61,29 @@ inputs:
 runs:
   using: composite
   steps:
-    # -P keeps the working directory, where a caller may have checked out the pull
-    # request, off the import path.
+    # The working directory is the action's own, so setup-uv reads no file of the
+    # caller's.
+    - name: Set up uv
+      uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      with:
+        version: 0.13.7
+        working-directory: ${{ github.action_path }}
+        enable-cache: false
+        add-problem-matchers: false
+    # uv installs what uv.lock pins, checking each hash, into a virtual environment on
+    # the runner's python3. It installs no build of this package: the checks run from
+    # src/.
     - name: Install the checks' dependencies
       shell: bash
       env:
         ACTION_PATH: ${{ github.action_path }}
-        VENV: ${{ runner.temp }}/pr-checks-venv
+        UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/pr-checks-venv
       run: |
-        set -euo pipefail
-        if ! python3 -P -c 'import sys; raise SystemExit(sys.version_info < (3, 12))'; then
-          echo "::error::pr-checks needs Python 3.12 or later on the runner, as python3"
-          exit 1
-        fi
-        python3 -P -m venv "$VENV"
-        PYTHONPATH="$ACTION_PATH/src" python3 -P -m pr_checks.requirements \
-          "$ACTION_PATH/uv.lock" >"$VENV/requirements.txt"
-        "$VENV/bin/python" -P -m pip install --quiet --disable-pip-version-check \
-          --no-deps --require-hashes --only-binary=:all: -r "$VENV/requirements.txt"
-    # `=` keeps a value that starts with a hyphen from reading as an option.
+        uv sync --project="$ACTION_PATH" --locked --no-install-project \
+          --no-default-groups --python=python3 --no-python-downloads
+    # -P keeps the working directory, where a caller may have checked out the pull
+    # request, off the import path. `=` keeps a value that starts with a hyphen from
+    # reading as an option.
     - name: Check the pull request
       shell: bash
       env:
