@@ -303,6 +303,38 @@ bust-ci-cache: ## Bust the CI cache
     git commit -m "ci: bust cache on $$(date +'%Y-%m-%d %H:%M')"
 
 ##############
+## releases ##
+##############
+
+# RELEASING.md describes the flow. Release PR opens the release PR by itself; these
+# start it by hand and approve the run waiting on the `release` environment.
+
+.PHONY: release-pr
+release-pr: ## Run the Release PR workflow (usage: make release-pr [VERSION=1.2.3]; omit to infer)
+	@if [ -n "$(VERSION)" ]; then \
+        gh workflow run release-pr.yml --ref main -f version=$(VERSION); \
+    else \
+        echo "No VERSION given; inferring from conventional commits."; \
+        gh workflow run release-pr.yml --ref main; \
+    fi
+
+.PHONY: release-pr-watch
+release-pr-watch: ## Watch the latest workflow run (run after make release-pr)
+	@gh run watch
+
+.PHONY: release-status
+release-status: ## Show the latest release, any open release PR, and any run awaiting approval
+	@sh scripts/release/approve.sh --status
+
+.PHONY: release-approve
+release-approve: ## Approve the waiting Release Tag run (usage: make release-approve [YES=1] to skip the prompt)
+	@if [ -n "$(YES)" ]; then \
+        sh scripts/release/approve.sh --yes; \
+    else \
+        sh scripts/release/approve.sh; \
+    fi
+
+##############
 ## building ##
 ##############
 

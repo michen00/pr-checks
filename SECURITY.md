@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-There is no release yet. Once there is, fixes will go to the latest release. Every `vX.Y.Z` tag will stay where it was published: a ruleset over `refs/tags/v*.*.*` blocks updating or deleting it, and a second ruleset over `refs/tags/v*` blocks deletion.
+There is no release yet. Once there is, fixes will go to the latest release. Every `vX.Y.Z` tag will stay where it was published: a ruleset over `refs/tags/v*.*.*` blocks updating or deleting it, and a second ruleset over `refs/tags/v*` blocks deletion. The major tag the check action's callers pin, `v0` for 0.y.z releases, will move forward to each release, which the second ruleset allows. Every tag will be signed with the release key; [RELEASING.md](RELEASING.md) says how to verify one.
 
 ## Reporting a vulnerability
 
