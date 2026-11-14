@@ -20,20 +20,22 @@ _ROOT = Path(__file__).resolve().parents[1]
 _SCRIPT = _ROOT / 'comment' / 'post.sh'
 _SHA = 'a' * 40
 _MARKER = '<!-- pr-checks:findings -->'
-_OPEN_PULL = {'number': 7, 'state': 'open', 'head': {'sha': _SHA}}
+_OPEN_PULL = {
+    'number': 7,
+    'state': 'open',
+    'head': {'sha': _SHA, 'ref': 'feature', 'repo': {'full_name': 'fork/name'}},
+}
 
 # GitHub's cap on a comment body. Repeated here rather than read from the script, so a
 # wrong constant there fails here.
 _COMMENT_MAX = 65536
 
-# A stub `gh`: it logs each call, answers a `--jq` lookup by running the real jq on
-# PULLS, prints COMMENTS for the comment listing, and echoes each write.
+# A stub `gh`: it logs each call, prints PULLS for the pull request lookup and COMMENTS
+# for the comment listing, and echoes each write.
 _STUB = r"""#!/usr/bin/env bash
 printf '%s\n' "$*" >>"$GH_LOG"
 case "$*" in
-  *"/commits/"*"/pulls"*)
-    while [ "$1" != --jq ]; do shift; done
-    jq -r "$2" <<<"$PULLS" ;;
+  *"/commits/"*"/pulls"*) printf '%s' "$PULLS" ;;
   *"/issues/7/comments"*) LIST_BRANCH ;;
   *"-X PATCH"*)
     last="${@: -1}"; printf 'PATCH %s\n%s\n' "$*" "$(cat "${last#body=@}")" ;;
@@ -93,6 +95,8 @@ def _run(  # noqa: PLR0913
             ),
             'REPO': 'owner/name',
             'HEAD_SHA': head_sha,
+            'HEAD_REPO': 'fork/name',
+            'HEAD_BRANCH': 'feature',
             'FINDINGS_DIR': str(findings),
             'MARKER': _MARKER,
             'HANDOFF': handoff,
@@ -199,7 +203,27 @@ def test_a_head_sha_that_is_not_a_sha_is_refused(tmp_path: Path) -> None:
     [
         pytest.param((), id='no pull request'),
         pytest.param(({**_OPEN_PULL, 'state': 'closed'},), id='closed'),
-        pytest.param(({**_OPEN_PULL, 'head': {'sha': 'b' * 40}},), id='head moved on'),
+        pytest.param(
+            ({**_OPEN_PULL, 'head': {**_OPEN_PULL['head'], 'sha': 'b' * 40}},),
+            id='head moved on',
+        ),
+        pytest.param(
+            (
+                {
+                    **_OPEN_PULL,
+                    'head': {**_OPEN_PULL['head'], 'repo': {'full_name': 'x/y'}},
+                },
+            ),
+            id='same commit from another repository',
+        ),
+        pytest.param(
+            ({**_OPEN_PULL, 'head': {**_OPEN_PULL['head'], 'ref': 'other'}},),
+            id='same commit from another branch',
+        ),
+        pytest.param(
+            ({**_OPEN_PULL, 'head': {**_OPEN_PULL['head'], 'repo': None}},),
+            id='deleted repository',
+        ),
     ],
 )
 def test_no_open_pull_request_with_this_head_means_no_comment(
@@ -210,6 +234,19 @@ def test_no_open_pull_request_with_this_head_means_no_comment(
 
     assert result.returncode == 0
     assert 'nothing to comment on' in result.stdout
+    assert 'POST' not in result.stdout
+
+
+def test_two_pull_requests_with_this_head_get_no_comment(tmp_path: Path) -> None:
+    """When the run's head cannot name one pull request, none is commented on."""
+    result = _run(
+        tmp_path,
+        warnings={'title': 'x\n'},
+        pulls=(_OPEN_PULL, {**_OPEN_PULL, 'number': 8}),
+    )
+
+    assert result.returncode == 0
+    assert 'more than one open pull request' in result.stdout
     assert 'POST' not in result.stdout
 
 
@@ -284,6 +321,27 @@ def test_html_in_a_finding_renders_as_text(
     assert '<placeholder>' not in result.stdout
     assert '<img' not in result.stdout
     assert '&lt;' in result.stdout
+
+
+def test_a_finding_mentions_no_one_and_links_no_issue(tmp_path: Path) -> None:
+    """A zero-width space after @ and # keeps a quoted name or number inert."""
+    result = _run(
+        tmp_path, errors={'title': "title: '@octocat' is not a type; see #12\n"}
+    )
+
+    assert '@octocat' not in result.stdout
+    assert '@\u200boctocat' in result.stdout
+    assert '#12' not in result.stdout
+
+
+def test_a_carriage_return_cannot_start_a_block(tmp_path: Path) -> None:
+    """Markdown ends a line at a carriage return, so it is removed, and # escaped."""
+    result = _run(tmp_path, warnings={'body': 'a slot\r# Heading\r> quote\n'})
+
+    posted = result.stdout.split('POST\n', 1)[1]
+    assert '\r' not in posted
+    assert '\n# Heading' not in posted
+    assert '- a slot\\#\u200b Heading&gt; quote' in posted
 
 
 def test_a_finding_cannot_carry_a_disguised_link(tmp_path: Path) -> None:

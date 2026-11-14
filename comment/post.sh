@@ -5,7 +5,8 @@
 # and deleted once there are none. Only a bot's comment that starts with the marker is
 # edited or deleted, so a person quoting the marker is left alone.
 #
-# Environment: GH_TOKEN, REPO, HEAD_SHA, FINDINGS_DIR, MARKER, HANDOFF.
+# Environment: GH_TOKEN, REPO, HEAD_SHA, HEAD_REPO, HEAD_BRANCH, FINDINGS_DIR, MARKER,
+# HANDOFF.
 
 set -euo pipefail
 
@@ -29,27 +30,37 @@ if ! [[ ${HEAD_SHA} =~ ^[0-9a-f]{40}$ ]]; then
   exit 1
 fi
 
-# From the API, never from the artifact: the pull request's own run uploaded it. A
-# pull request whose head has moved on is left to the run for its new head.
-pr_number="$(gh api "repos/${REPO}/commits/${HEAD_SHA}/pulls" \
-  --jq "[.[] | select(.state == \"open\" and .head.sha == \"${HEAD_SHA}\") | .number]
-        | first // empty")"
-case "${pr_number}" in
-  "")
-    echo "no open pull request has ${HEAD_SHA} as its head, so there is nothing to comment on"
+# From the API, not the artifact, which the pull request's own run uploaded. Matching
+# the run's head commit, repository and branch keeps a fork's pull request from aiming
+# the comment at another made from the same commit.
+matches="$(gh api "repos/${REPO}/commits/${HEAD_SHA}/pulls" |
+  jq -c --arg sha "${HEAD_SHA}" --arg repo "${HEAD_REPO}" --arg branch "${HEAD_BRANCH}" \
+    '[.[] | select(.state == "open" and .head.sha == $sha
+        and .head.repo.full_name == $repo and .head.ref == $branch) | .number]')"
+case "$(jq 'length' <<< "${matches}")" in
+  0)
+    echo "no open pull request has this run's head, so there is nothing to comment on"
     exit 0
     ;;
-  *[!0-9]*)
-    echo "::error::not a pull request number: ${pr_number}"
-    exit 1
+  1) pr_number="$(jq -r '.[0]' <<< "${matches}")" ;;
+  *)
+    echo "::warning::more than one open pull request has this run's head; commenting on none"
+    exit 0
     ;;
 esac
+if ! [[ ${pr_number} =~ ^[1-9][0-9]*$ ]]; then
+  echo "::error::not a pull request number: ${pr_number}"
+  exit 1
+fi
 
-# A finding can quote what the pull request's author wrote. Escaped, it renders as the
-# characters it holds and cannot carry HTML or a disguised link into a bot's comment.
-# `&` goes first, because the later rules add ampersands of their own.
+# A finding can quote the author, so it renders as text in one list item: no HTML, link,
+# block, mention or issue reference. `&` goes first; later rules add ampersands.
+zero_width_space="$(printf '\342\200\213')"
+readonly zero_width_space
 escape_for_markdown() {
-  sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/[][`*_~\\]/\\&/g'
+  tr -d '\r\v\f' |
+    sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/[][`*_~#\\]/\\&/g' \
+      -e "s/[@#]/&${zero_width_space}/g"
 }
 
 body_file="$(mktemp)"

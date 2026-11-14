@@ -50,6 +50,8 @@ runs:
         GH_TOKEN: ${{ inputs.github-token }}
         REPO: ${{ github.repository }}
         HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+        HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         FINDINGS_DIR: ${{ runner.temp }}/pr-checks-comment
         MARKER: ${{ inputs.marker }}
         HANDOFF: ${{ inputs.handoff }}
