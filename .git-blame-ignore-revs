@@ -1,2 +1,3 @@
 # Revisions that `git blame` skips: style-only or other bulk changes, one full commit
 # SHA per line with its subject as a comment. `make develop` points git at this file.
+b09ba9804b6f042bbb895c5afc9363272b1712b9  # style: drop redundant tuple parentheses (#23)
