@@ -38,7 +38,7 @@ jobs:
             Testing
 ```
 
-Pin each action to the commit a release's tag points at, with the release in a trailing comment, so that Dependabot moves the two together. `gh api repos/michen00/pr-checks/commits/vX.Y.Z --jq .sha` prints that commit. Where an Actions policy allows tags, `@v0` follows each 0.y.z release instead.
+Pin each action to the commit a release's tag points at, with the release in a trailing comment, so that Dependabot moves the two together. `gh api repos/michen00/pr-checks/commits/vX.Y.Z --jq .sha` prints that commit. Where an Actions policy allows tags, `michen00/pr-checks@v0` follows each 0.y.z release instead.
 
 The action checks out nothing. It sets up uv with `astral-sh/setup-uv`, which puts uv on the job's `PATH` for later steps, and runs on the runner's own `python3`, which must be 3.12 or later; CI tries it on `ubuntu-24.04` and `ubuntu-latest`.
 
