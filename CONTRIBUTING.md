@@ -29,6 +29,8 @@ Write Markdown prose as one line per paragraph. The `unwrap-markdown-prose-py` h
 
 A change to a workflow has to keep the properties `tests/test_workflows.py`, `tests/test_workflow_injection.py`, `tests/test_workflow_pins.py` and `tests/test_release_workflows.py` pin.
 
+The files that `.github/workflows/sync-template.yml` lists come from [michen00/template](https://github.com/michen00/template). Change them there: a change made here is undone by the next weekly sync pull request.
+
 ## Opening the PR
 
 - Merges are squash-only, and the PR title becomes the squash commit, so it must be a valid Conventional Commit. A single-commit PR squashes to that commit's subject instead, so keep the two identical.
