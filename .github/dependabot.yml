@@ -9,7 +9,9 @@ multi-ecosystem-groups:
     commit-message:
       prefix: chore
       include: scope
-# Each entry takes its schedule and commit message from the group above.
+# The uv and pre-commit entries take their schedule and commit message from the
+# group above. ruff is pinned in both ecosystems, so a ruff release moves both
+# pins in one pull request.
 updates:
   - package-ecosystem: uv
     directory: /
@@ -23,10 +25,20 @@ updates:
     multi-ecosystem-group: deps
     cooldown:
       default-days: 7
+  # Not in the `deps` group: actions run in jobs that hold write scopes, and the
+  # pins in both action.yml files run in every consumer's workflow, so they get a
+  # pull request of their own that a failing uv or pre-commit update cannot hold.
   - package-ecosystem: github-actions
     directories: [/, /comment]
-    patterns: ['*']
-    multi-ecosystem-group: deps
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: chore
+      include: scope
     cooldown:
       # GitHub rejects the semver-* keys for this ecosystem, and an invalid key
       # drops this whole entry, grouping included. The check-dependabot hook
